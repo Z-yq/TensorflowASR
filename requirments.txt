@@ -1,0 +1,3 @@
+tensorflow==2.2.0
+librosa>=0.7.0
+bert-keras>=0.81.0
