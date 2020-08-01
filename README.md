@@ -37,32 +37,41 @@ AM以最后的拼音音素为最终结果，以CER（character error rate）为�
 LM以汉字会结果，同样以CER为指标
 
 AM的性能结果
+
 |Test   |Dev   |。
 |       |      |。
 |4.1%   |3.26% |。
 
 LM的性能结果
+
 |Test   |Dev   |。
 |       |      |。
 |3.12%  |3.16% |。
 
 AM-LM的性能结果
+
 |Test   |Dev   |。
 |       |      |。
 |8.42%  |7.36% |。
 
+训练模型：https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA 提取码: 4hsa
+
+ckpt放在本项目目录下，run-test.py既可运行。
+
+bert放在LMmodel目录下，训练使用
+
 ## Usage
 可以参考run-test.py里的调用方式。
 
-import hparams
-from AMmodel.model import AM
-from LMmodel.trm_lm import LM
+  import hparams
+  from AMmodel.model import AM
+  from LMmodel.trm_lm import LM
 
-am=AM(hparams)
+  am=AM(hparams)
 
-lm=LM(hparams)
+  lm=LM(hparams)
 
-am_result=am.predict(wav_path)
+  am_result=am.predict(wav_path)
 
-lm_result=lm.get(am_result)
+  lm_result=lm.get(am_result)
 
