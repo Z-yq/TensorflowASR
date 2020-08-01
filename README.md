@@ -54,14 +54,14 @@ AM-LM的性能结果
 |       |      |。
 |8.42%  |7.36% |。
 
-训练模型：https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA 提取码: 4hsa
+预训练模型：https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA 提取码: 4hsa
 
 ckpt放在本项目目录下，run-test.py既可运行。
 
 bert放在LMmodel目录下，训练使用
 
 ## Usage
-可以参考run-test.py里的调用方式。
+*可以参考run-test.py里的调用方式。
 
   import hparams
   from AMmodel.model import AM
