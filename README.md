@@ -11,10 +11,15 @@ AM采用了多任务学习训练，分别以：
 
 LM采用了Transformer结构，辅以bert特征训练，采取拼音到汉字的做法。
 ## 进展
-1.修改代码成一个系统 OK
-2.run-test.py 已经测试通过 OK
-3.train_am.py 测试 doing
-4.train_lm.py 测试 doing
+
+1.修改代码成一个系统 OK.
+
+2.run-test.py 已经测试通过 OK.
+
+3.train_am.py 测试 doing.
+
+4.train_lm.py 测试 doing.
+
 5.数据预处理模块 doing
 
 ## Requirements
