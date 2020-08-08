@@ -53,15 +53,15 @@ If you want to train own model,
 
 **am_train_list** format:
 
-file_path1 \t text1
+*file_path1 \t text1*
 
-file_path2 \t text2
+*file_path2 \t text2*
 
 **lm_train_list** format:
 
-text1
+*text1*
 
-text2
+*text2*
 
 modify the path in **hparams.py**,then run **train_am.py** or **train_lm.py**
 
