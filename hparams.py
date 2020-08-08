@@ -5,6 +5,7 @@ lm_train_list='./lm_train_list.txt'
 batch_size=8
 save_step=200
 am_add_noise=False
+noise_wav_path=None
 # Default Audio hyperparameters
 
 

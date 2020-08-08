@@ -11,7 +11,7 @@ class AM_Trainer():
         self.hp=hparams
         self.am = AM(self.hp)
         self.dg = AM_DataLoader(self.am.itokens1, self.am.itokens2, self.am.itokens3, self.am.itokens4, SampleRate=self.hp.sample_rate, n_mels=self.hp.num_mels,
-                        batch=self.hp.batch_size,train_list=self.hp.am_train_list)
+                        batch=self.hp.batch_size,train_list=self.hp.am_train_list,noise_path=self.hp.noise_wav_path)
 
         self.STT = self.am.STT
 
