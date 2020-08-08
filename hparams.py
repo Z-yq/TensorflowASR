@@ -1,9 +1,10 @@
 
 
-am_train_list='./train_list.txt'
-lm_train_list='./train_text.txt'
-batch_size=16
+am_train_list='./am_train_list.txt'
+lm_train_list='./lm_train_list.txt'
+batch_size=8
 save_step=200
+am_add_noise=False
 # Default Audio hyperparameters
 
 

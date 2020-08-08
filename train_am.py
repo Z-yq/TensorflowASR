@@ -79,12 +79,12 @@ class AM_Trainer():
                 np.expand_dims(label_length2, -1), y3, np.expand_dims(label_length3, -1)]
 
 
-    @tf.function(experimental_relax_shapes=True)
+    # @tf.function(experimental_relax_shapes=True)
     def test_op(self,x, y):
-        ctc1, ctc2, ctc3=self.STT(x[:2])
+        ctc1, ctc2, ctc3=self.STT.call(x[:2],training=False)
         loss = tf.reduce_mean(ctc_lambda_func([ctc1,x[3],x[2],x[4]])) + tf.reduce_mean(ctc_lambda_func([ctc2,x[5],x[2],x[6]])) + tf.reduce_mean(ctc_lambda_func([ctc3,x[7],x[2],x[8]]))
         self.t1_loss(loss)
-        return tf.reduce_mean(ctc1), tf.reduce_mean(ctc2), tf.reduce_mean(ctc3)
+        return tf.reduce_mean(ctc_lambda_func([ctc1,x[3],x[2],x[4]])), tf.reduce_mean(ctc_lambda_func([ctc2,x[5],x[2],x[6]])),tf.reduce_mean(ctc_lambda_func([ctc3,x[7],x[2],x[8]]))
 
 
     @tf.function(experimental_relax_shapes=True)
@@ -96,9 +96,10 @@ class AM_Trainer():
                 tf.reduce_mean(ctc_lambda_func([ctc3,x[7],x[2],x[8]])) + 1.)
         gradients = tape.gradient(loss, self.STT.trainable_variables)
         self.opt.apply_gradients(zip(gradients, self.STT.trainable_variables))
-        self.ctc1_loss(tf.reduce_mean(ctc1))
-        self.ctc2_loss(tf.reduce_mean(ctc2))
-        self.ctc3_loss(tf.reduce_mean(ctc3))
+        self.ctc1_loss(tf.math.log(tf.reduce_mean(ctc_lambda_func([ctc1,x[3],x[2],x[4]])) + 1.) )
+        self.ctc2_loss(tf.math.log(tf.reduce_mean(ctc_lambda_func([ctc2,x[5],x[2],x[6]])) + 1.) )
+        self.ctc3_loss( tf.math.log(
+                tf.reduce_mean(ctc_lambda_func([ctc3,x[7],x[2],x[8]])) + 1.))
 
     def train(self):
         step = 0
@@ -121,14 +122,14 @@ class AM_Trainer():
                                 tf.constant(np.expand_dims(label_length1, -1)), tf.constant(y2),
                                 tf.constant(np.expand_dims(label_length2, -1)), tf.constant(y3),
                                 tf.constant(np.expand_dims(label_length3, -1))], np.zeros_like(x))
+            if self.hp.am_add_noise:
+                x, wavs = self.dg.add_noise(wavs)
 
-            x, wavs = self.dg.add_noise(wavs)
-
-            self.train_op([tf.constant(x), tf.constant(wavs),
-                                tf.constant(np.expand_dims(input_length, -1)), tf.constant(y1),
-                                tf.constant(np.expand_dims(label_length1, -1)), tf.constant(y2),
-                                tf.constant(np.expand_dims(label_length2, -1)), tf.constant(y3),
-                                tf.constant(np.expand_dims(label_length3, -1))], np.zeros_like(x))
+                self.train_op([tf.constant(x), tf.constant(wavs),
+                                    tf.constant(np.expand_dims(input_length, -1)), tf.constant(y1),
+                                    tf.constant(np.expand_dims(label_length1, -1)), tf.constant(y2),
+                                    tf.constant(np.expand_dims(label_length2, -1)), tf.constant(y3),
+                                    tf.constant(np.expand_dims(label_length3, -1))], np.zeros_like(x))
 
             if self.hp.use_redis:
                 if r.llen(self.hp.data_name) > 0 :
@@ -139,7 +140,7 @@ class AM_Trainer():
             if step % 10 == 0:
                 x, wavs, input_length, y1, label_length1, y2, label_length2, y3, label_length3, y4, label_length4 = self.dg.generator(
                     train=False)
-
+                input_length//=2
                 tctc1, tctc2, tctc3 = self.test_op([tf.constant(x), tf.constant(wavs),
                                                         tf.constant(np.expand_dims(input_length, -1)), tf.constant(y1),
                                                         tf.constant(np.expand_dims(label_length1, -1)), tf.constant(y2),
@@ -166,6 +167,6 @@ class AM_Trainer():
 
             step += 1
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES']='2'
+    os.environ['CUDA_VISIBLE_DEVICES']='0'
     train=AM_Trainer(hparams)
     train.train()

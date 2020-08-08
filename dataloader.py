@@ -12,7 +12,7 @@ from keras_bert import Tokenizer,load_vocabulary,load_trained_model_from_checkpo
 
 class AM_DataLoader():
 
-    def __init__(self, itokens1, itokens2, itokens3, itokens4, batch=32, SampleRate=8000, n_mels=64,noise_path= './noise/',train_list='./train_list.txt'
+    def __init__(self, itokens1, itokens2, itokens3, itokens4, batch=32, SampleRate=8000, n_mels=64,noise_path= None,train_list='./train_list.txt'
                 ):
         self.n_mels = n_mels
         self.Sr = SampleRate
@@ -31,23 +31,23 @@ class AM_DataLoader():
         self.itokens4 = itokens4
 
 
-
-        noise = os.listdir(noise_path)
-        self.noise = []
-        for i in noise:
-            n_fp = os.path.join(noise_path, i)
-            n_wav, _ = librosa.load(n_fp, sr=hparams.sample_rate)
-            data = None
-            inver = librosa.effects.split(n_wav, 25)
-            for s, e in inver:
-                if data is None:
-                    data = n_wav[s:e]
-                else:
-                    data = np.hstack((data, n_wav[s:e]))
-            n_wav = data
-            n_wav = n_wav / np.abs(n_wav).max()
-            self.noise.append(n_wav)
-        print('total noise', len(self.noise))
+        if noise_path is not None:
+            noise = os.listdir(noise_path)
+            self.noise = []
+            for i in noise:
+                n_fp = os.path.join(noise_path, i)
+                n_wav, _ = librosa.load(n_fp, sr=hparams.sample_rate)
+                data = None
+                inver = librosa.effects.split(n_wav, 25)
+                for s, e in inver:
+                    if data is None:
+                        data = n_wav[s:e]
+                    else:
+                        data = np.hstack((data, n_wav[s:e]))
+                n_wav = data
+                n_wav = n_wav / np.abs(n_wav).max()
+                self.noise.append(n_wav)
+            print('total noise', len(self.noise))
         pypinyin.load_phrases_dict({'调大': [['tiáo'], ['dà']],
                                     '调小': [['tiáo'], ['xiǎo']],
                                     '调亮': [['tiáo'], ['liàng']],
@@ -360,14 +360,15 @@ class LM_DataLoader():
         config = './LMmodel/bert/bert_config.json'
         checkpoint = './LMmodel/bert/bert_model.ckpt'
         vocab = './LMmodel/bert/vocab.txt'
-        self.pinyin_tokens, self.hans_tokens = MakeS2SDict(None, delimiter=' ', dict_file='./LMmodel/lm_tokens.txt')
+        self.pinyin_tokens, self.hans_tokens = MakeS2SDict(None, delimiter=' ', dict_file='./LMmodel/lm_tokens.txt',model='lm')
 
         vocabs = load_vocabulary(vocab)
         self.bert_token = Tokenizer(vocabs)
-
+        print('init bert')
         self.bert = self.init_bert(config, checkpoint)
+        print('get train text')
         self.texts = self.get_sentence(data_path)
-        # self.pick_prob=np.zeros(len(self.pinyins))
+
 
 
     def get_sentence(self,data_path):
@@ -389,19 +390,19 @@ class LM_DataLoader():
         y=[]
         for py,txt in zip(pinyins,txts):
             # print(py,txt)
-            try:
-                x_=[self.pinyin_tokens.startid()]
-                y_=[self.hans_tokens.startid()]
-                for i in py:
-                    x_.append(self.pinyin_tokens.t2id[i])
-                for i in txt:
-                    y_.append(self.hans_tokens.t2id[i])
-                x_.append(self.pinyin_tokens.endid())
-                y_.append(self.hans_tokens.endid())
-                x.append(np.array(x_))
-                y.append(np.array(y_))
-            except:
-                continue
+            # try:
+            x_=[self.pinyin_tokens.startid()]
+            y_=[self.hans_tokens.startid()]
+            for i in py:
+                x_.append(self.pinyin_tokens.t2id[i])
+            for i in txt:
+                y_.append(self.hans_tokens.t2id[i])
+            x_.append(self.pinyin_tokens.endid())
+            y_.append(self.hans_tokens.endid())
+            x.append(np.array(x_))
+            y.append(np.array(y_))
+            # except:
+            #     continue
         return  x,y
     def bert_decode(self,x,x2=None):
         tokens,segs=[],[]
@@ -445,7 +446,7 @@ class LM_DataLoader():
 
     def generate(self,batch):
         sample=np.random.randint(0,len(self.texts),batch)
-        trainx=[pypinyin.pinyin(self.texts[i]) for i in sample]
+        trainx=[pypinyin.lazy_pinyin(self.texts[i],1) for i in sample]
         trainy=[self.texts[i] for i in sample]
         x,y=self.preprocess(trainx,trainy)
         e_bert_t, e_bert_s = self.bert_decode(trainy)

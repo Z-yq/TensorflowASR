@@ -14,7 +14,6 @@ class LM_Trainer():
         self.model = lm.model
         self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True, reduction='none')
-        # learning_rate = CustomSchedule(768)
 
         self.optimizer = tf.keras.optimizers.Adamax(1e-4)
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -57,15 +56,16 @@ class LM_Trainer():
     def train(self,):
         step=0
         while 1:
-            x,y,feature=self.dg.generate(32)
-            if len(x)<8 or len(x)!=len(y):
-                continue
-            if len(x)!=len(feature):
+            try:
+                x,y,feature=self.dg.generate(8)
+            except:
+                logging.info('data genrator failed,you can check here')
                 continue
             self.train_step(x,y,feature)
             if step%10==0:
                 logging.info('Step {}  Loss {:.4f} Accuracy {:.4f}'.format(
                 step, self.train_loss.result(), self.train_accuracy.result()))
+
             if step%1000==0:
                 self.train_loss.reset_states()
                 self.train_accuracy.reset_states()
@@ -76,3 +76,4 @@ class LM_Trainer():
 if __name__ == '__main__':
     import hparams
     train=LM_Trainer(hparams)
+    train.train()
