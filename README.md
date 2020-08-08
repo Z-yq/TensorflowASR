@@ -1,77 +1,85 @@
-# TensorflowASR
-## 概述
-这是一个实验过程中得到的中文端到端语音识别项目
+<h1 align="center">
+<p>TiramisuASR</p>
+<p align="center">
+<img alt="python" src="https://img.shields.io/badge/python-%3E%3D3.6-blue">
+<img alt="tensorflow" src="https://img.shields.io/badge/tensorflow-%3E%3D2.2.0-orange">
+</p>
+</h1>
+<h2 align="center">
+<p>MultiTask Automatic Speech Recognition in Tensorflow 2</p>
+</h2>
 
-其中包含AM和LM两个部分，由于实验而得，做法相对比较简单，适用性略低。
+<p align="center">
+TensorflowASR implements a multitask Chinese speech recognition CTC-based models ,and other models will be enriched in the future.It includes AM and LM. Because of the experiment, the method is relatively simple and the applicability is slightly lower.
+Am adopted multi task learning training
+English letters as target
+Vowels as the target
+Pinyin as the target
+LM adopts transformer structure, supplemented by Bert feature training and pinyin to Chinese characters.
+</p>
 
-AM采用了多任务学习训练，分别以：
-英文字母为目标
-声韵母为目标
-拼音为目标
+## What's New?
 
-LM采用了Transformer结构，辅以bert特征训练，采取拼音到汉字的做法。
-## 进展
+-   AM\LM Training script complete
 
-1.修改代码成一个系统 OK.
+## :yum: Supported Models
 
-2.run-test.py 已经测试通过 OK.
+-   **Multitask-CTCModel** (End2end models using CTC Loss for training)
+-   **Transformer** (Pinyin to Chinese characters,LM)
 
-3.train_am.py 测试 doing.
-
-4.train_lm.py 测试 doing.
-
-5.数据预处理模块 doing
 
 ## Requirements
 
-Tensorflow 2.2.0
-
-librosa 0.8.0
-
-bert-keras 0.81.0
-
-## 性能指标
-
-测试数据为 AISHELL Test数据集和DEV数据集。
-AM以最后的拼音音素为最终结果，以CER（character error rate）为指标。
-LM以汉字会结果，同样以CER为指标
-
-AM的性能结果
-
-|Test   |Dev   |。
-|       |      |。
-|4.1%   |3.26% |。
-
-LM的性能结果
-
-|Test   |Dev   |。
-|       |      |。
-|3.12%  |3.16% |。
-
-AM-LM的性能结果
-
-|Test   |Dev   |。
-|       |      |。
-|8.42%  |7.36% |。
-
-预训练模型：https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA 提取码: 4hsa
-
-ckpt放在本项目目录下，run-test.py既可运行。
-
-bert放在LMmodel目录下，训练使用
+-   Python 3.6+
+-   Tensorflow 2.2+: `pip install tensorflow`
+-   librosa
+-   pypinyin
+-   keras-bert
 
 ## Usage
-*可以参考run-test.py里的调用方式。
 
-  import hparams
-  from AMmodel.model import AM
-  from LMmodel.trm_lm import LM
+Now there is a pre-train model,including ALL open data.
+Pre training model: https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA extraction code: 4hsa
+CKPT in the project directory.
+Bert is placed in the LMmodel directory for training.
 
-  am=AM(hparams)
+follow **run-test.py** can use model directly. 
 
-  lm=LM(hparams)
 
-  am_result=am.predict(wav_path)
+If you want to train own model,
+**am_train_list** format:
+file_path1 \t text1
+file_path2 \t text2
 
-  lm_result=lm.get(am_result)
+**lm_train_list** format:
+text1
+text2
 
+modify the path in **hparams.py**,then run **train_am.py** or **train_lm.py**
+
+## Performerce
+
+The test data are aishell test dataset and dev dataset.
+Am takes the final Pinyin phoneme as the final result and use CER (character error rate) to test.
+LM is based on Chinese characters ,and use cer too.
+
+AM:
+
+|Test   |Dev   |
+|-------|------|
+|4.1%   |3.26% |
+
+LM:
+|Test   |Dev   |
+|-------|------|
+|3.12%  |3.16% |
+
+AM-LM:
+
+|Test   |Dev   |
+|-------|------|
+|8.42%  |7.36% |
+## Future 
+-  Add custom dictionary function
+-  Add other end-to-end models
+-  Add other language models
