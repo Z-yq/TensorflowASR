@@ -1,5 +1,5 @@
 <h1 align="center">
-<p>TiramisuASR</p>
+<p>TensorflowASR</p>
 <p align="center">
 <img alt="python" src="https://img.shields.io/badge/python-%3E%3D3.6-blue">
 <img alt="tensorflow" src="https://img.shields.io/badge/tensorflow-%3E%3D2.2.0-orange">
