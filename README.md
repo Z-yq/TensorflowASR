@@ -22,7 +22,7 @@ LM adopts transformer structure, supplemented by Bert feature training and pinyi
 
 -   AM\LM Training script complete
 
-## :yum: Supported Models
+## Supported Models
 
 -   **Multitask-CTCModel** (End2end models using CTC Loss for training)
 -   **Transformer** (Pinyin to Chinese characters,LM)
@@ -39,20 +39,28 @@ LM adopts transformer structure, supplemented by Bert feature training and pinyi
 ## Usage
 
 Now there is a pre-train model,including ALL open data.
+
 Pre training model: https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA extraction code: 4hsa
+
 CKPT in the project directory.
+
 Bert is placed in the LMmodel directory for training.
 
 follow **run-test.py** can use model directly. 
 
 
 If you want to train own model,
+
 **am_train_list** format:
+
 file_path1 \t text1
+
 file_path2 \t text2
 
 **lm_train_list** format:
+
 text1
+
 text2
 
 modify the path in **hparams.py**,then run **train_am.py** or **train_lm.py**
@@ -60,7 +68,9 @@ modify the path in **hparams.py**,then run **train_am.py** or **train_lm.py**
 ## Performerce
 
 The test data are aishell test dataset and dev dataset.
+
 Am takes the final Pinyin phoneme as the final result and use CER (character error rate) to test.
+
 LM is based on Chinese characters ,and use cer too.
 
 AM:
@@ -79,6 +89,7 @@ AM-LM:
 |Test   |Dev   |
 |-------|------|
 |8.42%  |7.36% |
+
 ## Future 
 -  Add custom dictionary function
 -  Add other end-to-end models
