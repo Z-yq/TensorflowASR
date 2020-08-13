@@ -1,4 +1,3 @@
-<<<<<<< .mine
 <h1 align="center">
 <p>TensorflowASR</p>
 <p align="center">
