@@ -1,0 +1,50 @@
+# Copyright 2020 Huy Le Nguyen (@usimarit)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+model_config:
+  name: ConformerCTC #ConformerTransducer/ConformerCTC/ConformerLAS
+  dmodel: 144
+  reduction_factor: 4
+  num_blocks: 6
+  head_size: 64
+  num_heads: 4
+  kernel_size: 32
+  fc_factor: 0.5
+  dropout: 0.1
+  embed_dim: 144
+  embed_dropout: 0.0
+  num_lstms: 1
+  lstm_units: 320
+  joint_dim: 1024
+  LAS_decoder:
+    n_classes: None
+    embedding_hidden_size: 512
+    initializer_range: 0.02
+    layer_norm_eps: 1e-6
+    n_prenet_layers: 2
+    prenet_units: 256
+    prenet_activation: "mish"
+    prenet_dropout_rate: 0.5
+    n_lstm_decoder: 1
+    decoder_lstm_units: 256
+    attention_dim: 128
+    attention_filters: 32
+    attention_kernel: 31
+
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
+

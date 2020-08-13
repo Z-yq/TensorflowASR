@@ -1,3 +1,6 @@
 tensorflow==2.2.0
 librosa>=0.7.0
 bert-keras>=0.81.0
+pypinyin>=0.35.0
+addons>=0.10.0 
+tqdm
