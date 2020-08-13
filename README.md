@@ -9,7 +9,7 @@
 <p>State-of-the-art Automatic Speech Recognition in Tensorflow 2</p>
 </h2>
 <p align="center">
-CTC\Transducer\LAS 
+CTC\Transducer\LAS default Chinese ASR
 </p>
 
 ## What's New?
