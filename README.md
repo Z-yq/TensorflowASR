@@ -212,13 +212,13 @@ AM-LM:
 |-------|------|
 |8.42%  |7.36% |
 
-AM Speed Test,use a ~4.1 seconds wav:
+AM Speed Test,use a ~4.1 seconds wav on **CPU**:
 
 |CTC    |Transducer|LAS  |
 |-------|----------|-----|
 |150ms  |350ms     |280ms|
 
-LM Speed Test,12 word:
+LM Speed Test,12 word on **CPU**:
 
 |O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
 |-------------------|-----------|---------------|
