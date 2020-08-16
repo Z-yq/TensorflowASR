@@ -80,13 +80,13 @@ class AM():
 
         except:
             logging.info('lm loading model failed.')
-    def convert_to_pb(self,):
+    def convert_to_pb(self,export_path):
         import tensorflow as tf
         f, c = self.speech_feature.compute_feature_dim()
         self.model.return_pb_function(f, c)
 
         concrete_func = self.model.recognize_pb.get_concrete_function()
-        tf.saved_model.save(self.model,'./test_model',signatures=concrete_func)
+        tf.saved_model.save(self.model,export_path,signatures=concrete_func)
 
     def decode_result(self,word):
         de=[]

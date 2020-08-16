@@ -77,7 +77,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 3. Modify the **_`am_data.yml`_** (in ./configs),set running params.Modify the `name` in **model yaml** to choose the structure.
 4. Just run:
   
-     ```python
+     ```shell
     python train_am.py --data_config ./configs/am_data --model_config ./configs/conformer.yml
     ```
   
@@ -166,7 +166,15 @@ class YourModelLAS(LAS):
 
 ```
 Then,import the your model in `./AMmodel/model.py` ,modify the `load_model` function
-
+## Convert to pb
+AM/LM model are the same as follow:
+```python
+from AMmodel.model import AM
+am_config = UserConfig('...','...')
+am=AM(am_config)
+am.load_model(False)
+am.convert_to_pb(export_path)
+```
 ## Tips
 IF you want to use your own phoneme,modify the convert function in `am_dataloader.py/lm_dataloader.py`
 

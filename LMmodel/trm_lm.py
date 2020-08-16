@@ -21,12 +21,12 @@ class LM():
         self.model.start_id=self.word_featurizer.start
         self.model.end_id=self.word_featurizer.stop
 
-    def convert_to_pb(self, ):
+    def convert_to_pb(self, export_path):
         import tensorflow as tf
         self.model.inference(np.ones([1,10],'int32'))
 
         concrete_func = self.model.inference.get_concrete_function()
-        tf.saved_model.save(self.model, './test_model', signatures=concrete_func)
+        tf.saved_model.save(self.model, export_path, signatures=concrete_func)
     def load_checkpoint(self, ):
         """Load checkpoint."""
 
