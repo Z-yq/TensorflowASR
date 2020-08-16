@@ -1,27 +1,13 @@
-# Copyright 2020 Huy Le Nguyen (@usimarit)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
-import os
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
 
-from utils.speech_featurizers import SpeechFeaturizer,read_raw_audio
+from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
-from losses.ctc_losses import ctc_loss
-from trainer.base_runners import BaseTrainer, BaseInferencer
-from utils.tools import bytes_to_string
+
+from trainer.base_runners import BaseTrainer
+
 
 
 class LASTrainer(BaseTrainer):
@@ -62,12 +48,13 @@ class LASTrainer(BaseTrainer):
     def _train_step(self, batch):
         features, _, input_length, labels, label_length,guide_matrix= batch
         max_iter=tf.shape(labels)[1]
+        self.model.maxinum_iterations = max_iter
         with tf.GradientTape() as tape:
             y_pred,stop_token_pred,aligments = self.model(features,
             input_length,
             tf.expand_dims(labels,-1),
             label_length,
-            maximum_iterations=max_iter, training=True)
+             training=True)
 
             classes_loss = self.mask_loss(labels,y_pred)
             stop_loss=self.stop_loss(labels,stop_token_pred)
@@ -119,12 +106,12 @@ class LASTrainer(BaseTrainer):
         features, _, input_length, labels, label_length, guide_matrix = batch
 
         max_iter = tf.shape(labels)[1]
-
+        self.model.maxinum_iterations=max_iter
         y_pred, stop_token_pred, aligments = self.model(features,
                                                         input_length,
                                                         tf.expand_dims(labels, -1),
                                                         label_length,
-                                                        maximum_iterations=max_iter, training=False)
+                                                         training=False)
 
         classes_loss = self.mask_loss(labels, y_pred)
         stop_loss = self.stop_loss(labels, stop_token_pred)

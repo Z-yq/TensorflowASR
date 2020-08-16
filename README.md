@@ -13,12 +13,15 @@ CTC\Transducer\LAS Default is Chinese ASR
 </p>
 
 ## What's New?
--   CTC\LAS\Transducer Structure and Loss complete
--   AM\LM Training script complete
--   AM\LM Test script complete
--   AM data augments
--   TFLite convert function `not test`
+
+-   Add DeepSpeech2
+-   Fix some bugs
+-   Convert to pb 
+-   Support CTC structure to tflite
+
+
 ## Future
+-  To support tflite
 -  Fix bugs
 -  Add other models
 
@@ -44,7 +47,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 -   librosa
 -   pypinyin `if you need use the default phoneme`
 -   keras-bert
--   addons `For LAS structure`
+-   addons `For LAS structure,pip install tensorflow-addons`
 -   tqdm
 -   wrap_rnnt_loss `not essential,provide in ./externals`
 -   wrap_ctc_decoders `not essential,provide in ./externals`

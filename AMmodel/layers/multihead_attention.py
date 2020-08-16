@@ -229,4 +229,4 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             bias_constraint=tf.keras.constraints.serialize(self.bias_constraint),
         )
 
-        return
+        return config

@@ -1,16 +1,3 @@
-# Copyright 2020 Huy Le Nguyen (@usimarit)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import tensorflow as tf
 
@@ -66,6 +53,7 @@ class ConvSubsampling(tf.keras.layers.Layer):
     def call(self, inputs, training=False, **kwargs):
         outputs = self.conv1(inputs, training=training)
         outputs = self.conv2(outputs, training=training)
+
         outputs = merge_two_last_dims(outputs)
         outputs = self.linear(outputs, training=training)
         return self.do(outputs, training=training)
@@ -279,7 +267,7 @@ class ConformerEncoder(tf.keras.Model):
             )
             self.conformer_blocks.append(conformer_block)
 
-    # @tf.function(experimental_relax_shapes=True)
+    # @tf.function()
     def call(self, inputs, training=False, **kwargs):
         # input with shape [B, T, V1, V2]
         outputs = self.conv_subsampling(inputs, training=training)
@@ -296,7 +284,7 @@ class ConformerEncoder(tf.keras.Model):
         return conf
 
 
-class ConformerTansducer(Transducer):
+class ConformerTransducer(Transducer):
     def __init__(self,
                  dmodel: int,
                  reduction_factor: int,
@@ -314,7 +302,7 @@ class ConformerTansducer(Transducer):
                  joint_dim: int = 1024,
                  name: str = "conformer_transducer",
                  **kwargs):
-        super(ConformerTansducer, self).__init__(
+        super(ConformerTransducer, self).__init__(
             encoder=ConformerEncoder(
                 dmodel=dmodel,
                 reduction_factor=reduction_factor,
@@ -363,6 +351,7 @@ class ConformerLAS(LAS):
     def __init__(self,
                  config,
                  training=True,
+                 enable_tflite_convertible=False,
                  ):
         config['LAS_decoder'].update({'encoder_dim':config['dmodel']})
         decoder_config=LASConfig(**config['LAS_decoder'])
@@ -378,7 +367,7 @@ class ConformerLAS(LAS):
                 fc_factor=config['fc_factor'],
                 dropout=config['dropout'],
                 name=config['name']
-            ),config=decoder_config,training=training
+            ),config=decoder_config,training=training,enable_tflite_convertible=enable_tflite_convertible,
 
         )
 if __name__ == '__main__':

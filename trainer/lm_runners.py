@@ -48,14 +48,9 @@ class LMTrainer(BaseTrainer):
             tar_real = tar[:, 1:]
             feature=feature[:,1:]
 
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-
         with tf.GradientTape() as tape:
             predictions, out_feature = self.model(inp, tar_inp,
-                                                  True,
-                                                  enc_padding_mask,
-                                                  combined_mask,
-                                                  dec_padding_mask)
+                                                  training=True)
             classes_loss=self.classes_loss(tar_real, predictions)
             feature_map_loss=self.bert_feature_loss(feature, out_feature)
             train_loss =classes_loss+feature_map_loss
@@ -89,14 +84,9 @@ class LMTrainer(BaseTrainer):
             tar_real = tar[:, 1:]
             feature = feature[:, 1:]
 
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-
-
         predictions, out_feature = self.model(inp, tar_inp,
-                                              False,
-                                              enc_padding_mask,
-                                              combined_mask,
-                                              dec_padding_mask)
+                                              training=False
+                                             )
         classes_loss = self.classes_loss(tar_real, predictions)
         feature_map_loss = self.bert_feature_loss(feature, out_feature)
 

@@ -1,16 +1,4 @@
-# Copyright 2020 Huy Le Nguyen (@usimarit)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+
 
 import os
 import collections
@@ -38,23 +26,27 @@ class TransducerPrediction(tf.keras.Model):
         self.embed = tf.keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embed_dim, mask_zero=False)
         self.do = tf.keras.layers.Dropout(embed_dropout)
-        self.lstms = []
+        self.lstm_cells = []
         # lstms units must equal (for using beam search)
         for i in range(num_lstms):
-            lstm = tf.keras.layers.LSTM(units=lstm_units,
-                                        return_sequences=True, return_state=True)
-            self.lstms.append(lstm)
+            lstm = tf.keras.layers.LSTMCell(units=lstm_units,
+                                        )
+            self.lstm_cells.append(lstm)
+        self.decoder_lstms = tf.keras.layers.RNN(tf.keras.layers.StackedRNNCells(
+            self.lstm_cells, name="decoder_lstms"
+        ),return_sequences=True,return_state=True)
 
     def get_initial_state(self, input_sample):
-        B = shape_list(input_sample)[0]
-        memory_states = []
-        for i in range(len(self.lstms)):
-            memory_states.append(
-                self.lstms[i].get_initial_state(
-                    tf.zeros([B, 1, 1], dtype=input_sample.dtype)
-                )
-            )
-        return memory_states
+        # B = shape_list(input_sample)[0]
+        # memory_states = []
+        # for i in range(len(self.lstm_cells)):
+        #     memory_states.append(
+        #         self.lstm_cells[i].get_initial_state(
+        #             tf.zeros([B, 1, 1], dtype=input_sample.dtype)
+        #         )
+        #     )
+        # return memory_states
+        return self.decoder_lstms.get_initial_state(input_sample)
 
     # @tf.function(experimental_relax_shapes=True)
     def call(self,
@@ -67,15 +59,15 @@ class TransducerPrediction(tf.keras.Model):
         outputs = self.do(outputs, training=training)
         if p_memory_states is None:  # Zeros mean no initial_state
             p_memory_states = self.get_initial_state(outputs)
-        n_memory_states = []
-        for i, lstm in enumerate(self.lstms):
-            outputs = lstm(outputs, training=training, initial_state=p_memory_states[i])
-            new_memory_states = outputs[1:]
-            outputs = outputs[0]
-            n_memory_states.append(new_memory_states)
+        # n_memory_states = []
+        # for i, lstm in enumerate(self.lstms):
+        outputs = self.decoder_lstms(outputs, training=training, initial_state=p_memory_states)
+        new_memory_states = outputs[1:]
+        outputs = outputs[0]
+        # n_memory_states.append(new_memory_states)
 
         # return shapes [B, T, P], ([num_lstms, B, P], [num_lstms, B, P]) if using lstm
-        return outputs, n_memory_states
+        return outputs, new_memory_states
 
     def get_config(self):
         conf = super(TransducerPrediction, self).get_config()
@@ -146,7 +138,8 @@ class Transducer(tf.keras.Model):
             name=f"{name}_joint"
         )
         self.kept_hyps = None
-
+        self.startid=1
+        self.endid=2
     def _build(self, sample_shape):  # Call on real data for building model
         features = tf.random.normal(shape=sample_shape)
         predicted = tf.constant([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
@@ -194,14 +187,17 @@ class Transducer(tf.keras.Model):
 
         self.text_featurizer = text_featurizer
 
-    @tf.function(experimental_relax_shapes=True)
-    def recognize(self, features: tf.Tensor) -> tf.Tensor:
+    @tf.function(experimental_relax_shapes=True,input_signature=[
+                tf.TensorSpec([None,None,80,4], dtype=tf.float32),  # features
+
+            ])
+    def recognize(self, features):
         b_i = tf.constant(0, dtype=tf.int32)
 
         B = shape_list(features)[0]
 
         # decoded = tf.constant([], dtype=tf.string)
-        decoded = tf.constant([1], dtype=tf.int32)
+        decoded = tf.constant([self.startid], dtype=tf.int32)
 
         def _cond(b_i, B, features, decoded): return tf.less(b_i, B)
 
@@ -227,31 +223,52 @@ class Transducer(tf.keras.Model):
         )
 
         return [decoded]
+    def return_pb_function(self,f,c):
+        @tf.function(
+            experimental_relax_shapes=True,
+            input_signature=[
+                tf.TensorSpec([None,None,f, c], dtype=tf.float32),  # features
 
-    @tf.function(
-        experimental_relax_shapes=True,
+            ]
+        )
+        def recognize_pb( features):
+            b_i = tf.constant(0, dtype=tf.int32)
 
-    )
-    def recognize_tflite(self, features) -> tf.Tensor:
-        """
-        Function to convert to tflite using greedy decoding (default streaming mode)
-        Args:
-        Args:
-            signal: tf.Tensor with shape [None] indicating a single audio signal
+            B = shape_list(features)[0]
 
-        Return:
-            transcript: tf.Tensor of Unicode Code Points with shape [None] and dtype tf.int32
-        """
+            # decoded = tf.constant([], dtype=tf.string)
+            decoded = tf.constant([self.startid], dtype=tf.int32)
 
-        indices = self.perform_greedy(features, streaming=True)
-        transcript = self.text_featurizer.index2upoints(indices)
-        return tf.squeeze(transcript, axis=0)
+            def _cond(b_i, B, features, decoded): return tf.less(b_i, B)
 
+            def _body(b_i, B, features, decoded):
+                yseq = self.perform_greedy(tf.expand_dims(features[b_i], axis=0),
+                                           streaming=True)
 
-    @tf.function(experimental_relax_shapes=True)
+                # yseq = self.text_featurizer.iextract(yseq)
+
+                decoded = tf.concat([decoded, yseq[0]], axis=0)
+                return b_i + 1, B, features, decoded
+
+            _, _, _, decoded = tf.while_loop(
+                _cond,
+                _body,
+                loop_vars=(b_i, B, features, decoded),
+                shape_invariants=(
+                    tf.TensorShape([]),
+                    tf.TensorShape([]),
+                    get_shape_invariants(features),
+                    tf.TensorShape([None])
+                )
+            )
+            return decoded
+
+        self.recognize_pb= recognize_pb
+
+    # @tf.function(experimental_relax_shapes=True)
     def perform_greedy(self,
-                       features: tf.Tensor,
-                       streaming: bool = False) -> tf.Tensor:
+                       features,
+                       streaming=False) :
         new_hyps = Hypotheses(
             tf.constant(0.0, dtype=tf.float32),
             self.text_featurizer.start * tf.ones([1], dtype=tf.int32),
@@ -264,7 +281,7 @@ class Transducer(tf.keras.Model):
         enc = self.encoder(features, training=False)  # [1, T, E]
         enc = tf.squeeze(enc, axis=0)  # [T, E]
 
-        T = tf.cast(shape_list(enc)[0], dtype=tf.int32)
+        T = tf.cast(tf.shape(enc)[0], dtype=tf.int32)
 
         i = tf.constant(0, dtype=tf.int32)
 

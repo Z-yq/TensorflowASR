@@ -41,8 +41,8 @@ class LM_Trainer():
 if __name__ == '__main__':
     import argparse
     parse = argparse.ArgumentParser()
-    parse.add_argument('--data_config', str, required=True, help='the am data config path')
-    parse.add_argument('--model_config', str, required=True, help='the am model config path')
+    parse.add_argument('--data_config', type=str, required=True, help='the am data config path')
+    parse.add_argument('--model_config', type=str, required=True, help='the am model config path')
     args = parse.parse_args()
 
     config = UserConfig(args.data_config,args.model_config)

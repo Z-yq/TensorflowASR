@@ -13,6 +13,7 @@ class AM_Trainer():
 
         self.am = AM(config)
         self.am.load_model(training=True)
+
         self.dg = AM_DataLoader(config)
         if self.am.config['decoder_config']['model_type']=='CTC':
             self.runner = ctc_runners.CTCTrainer(self.dg.speech_featurizer,self.dg.text_featurizer,self.config['running_config'])
@@ -23,13 +24,16 @@ class AM_Trainer():
             self.runner = transducer_runners.TransducerTrainer(self.config['running_config'],self.dg.text_featurizer )
         self.STT = self.am.model
 
-        # self.opt = tf.keras.optimizers.Adamax(learning_rate=config['optimizer_config']['learning_rate'],
-        #                                       beta_1=config['optimizer_config']['beta_1'],
-        #                                       beta_2=config['optimizer_config']['beta_2'],
-        #                                       epsilon=config['optimizer_config']['epsilon'])
+        if self.dg.augment.available():
+            factor=2
+        else:
+            factor=1
         self.opt = tf.keras.optimizers.Adamax(**config['optimizer_config'])
-        self.runner.set_total_train_steps(self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs'])
+        self.runner.set_total_train_steps(self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs']*factor)
+        if self.am.init_steps is not None:
+            self.runner.steps = self.am.init_steps
         self.runner.compile(self.STT,self.opt)
+
 
     def recevie_data(self,r):
 

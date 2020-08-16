@@ -1,16 +1,4 @@
-# Copyright 2020 Huy Le Nguyen (@usimarit)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+
 
 import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
@@ -90,14 +78,14 @@ class TransducerTrainer(BaseTrainer):
         features, _, input_length, labels, label_length = batch
         pred_inp = labels
         target = labels[:, 1:]
-
+        label_length -= 1
 
         logits = self.model([features, pred_inp], training=False)
         if USE_TF:
             eval_loss = self.rnnt_loss(logits=logits, labels=target
                                             , label_length=label_length,
-                                            logit_length=input_length // self.model.time_reduction_factor,
-                                            name='rnnt_loss')
+                                            logit_length=input_length,
+                                           )
         else:
             eval_loss = self.rnnt_loss(
                 logits=logits, labels=target, label_length=label_length,
@@ -124,5 +112,6 @@ class TransducerTrainer(BaseTrainer):
             self.train_progbar.set_description_str(
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
         self._train_batches(train_dataset)
+
         if eval_dataset is not None:
-            self._eval_batches(eval_dataset)
+            self._check_eval_interval(eval_dataset)

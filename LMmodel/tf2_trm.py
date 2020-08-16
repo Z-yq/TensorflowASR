@@ -24,11 +24,12 @@ def positional_encoding(position, d_model):
 
 
 def create_padding_mask(seq):
-    seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
+    seq_pad = tf.cast(tf.equal(seq, 0), tf.float32)
+    # seq_pad = tf.clip_by_value(seq,0.,1.)
 
     # add extra dimensions to add the padding
     # to the attention logits.
-    return seq[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
+    return seq_pad[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
 
 
 def create_look_ahead_mask(size):
@@ -88,6 +89,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         self.wv = tf.keras.layers.Dense(d_model)
 
         self.dense = tf.keras.layers.Dense(d_model)
+        self.mask=None
 
     def split_heads(self, x, batch_size):
         """Split the last dimension into (num_heads, depth).
@@ -96,7 +98,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def call(self, v, k, q, mask):
+    def call(self, v, k, q):
         batch_size = tf.shape(q)[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -110,7 +112,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
         # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
         scaled_attention, attention_weights = scaled_dot_product_attention(
-            q, k, v, mask)
+            q, k, v,self.mask)
 
         scaled_attention = tf.transpose(scaled_attention,
                                         perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
@@ -143,8 +145,10 @@ class EncoderLayer(tf.keras.layers.Layer):
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
 
-    def call(self, x, training, mask):
-        attn_output, _ = self.mha(x, x, x, mask)  # (batch_size, input_seq_len, d_model)
+        self.mask=None
+    def call(self, x, training=False):
+        self.mha.mask=self.mask
+        attn_output, _ = self.mha(x, x, x)  # (batch_size, input_seq_len, d_model)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(x + attn_output)  # (batch_size, input_seq_len, d_model)
 
@@ -171,17 +175,18 @@ class DecoderLayer(tf.keras.layers.Layer):
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
         self.dropout3 = tf.keras.layers.Dropout(rate)
-
-    def call(self, x, enc_output, training,
-             look_ahead_mask, padding_mask):
+        self.look_ahead_mask=None
+        self.padding_mask=None
+    def call(self, x, enc_output, training=False ):
         # enc_output.shape == (batch_size, input_seq_len, d_model)
-
-        attn1, attn_weights_block1 = self.mha1(x, x, x, look_ahead_mask)  # (batch_size, target_seq_len, d_model)
+        self.mha1.mask=self.look_ahead_mask
+        self.mha2.mask=self.padding_mask
+        attn1, attn_weights_block1 = self.mha1(x, x, x)  # (batch_size, target_seq_len, d_model)
         attn1 = self.dropout1(attn1, training=training)
         out1 = self.layernorm1(attn1 + x)
 
         attn2, attn_weights_block2 = self.mha2(
-            enc_output, enc_output, out1, padding_mask)  # (batch_size, target_seq_len, d_model)
+            enc_output, enc_output, out1)  # (batch_size, target_seq_len, d_model)
         attn2 = self.dropout2(attn2, training=training)
         out2 = self.layernorm2(attn2 + out1)  # (batch_size, target_seq_len, d_model)
 
@@ -209,9 +214,10 @@ class Encoder(tf.keras.layers.Layer):
         self.Cnn_layers = [tf.keras.layers.Conv1D(d_model, 3, padding='causal', activation='relu') for _ in
                            range(num_layers)]
         self.dropout = tf.keras.layers.Dropout(rate)
+        self.mask=None
 
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, x, training, mask):
+    def call(self, x, training=False):
         seq_len = tf.shape(x)[1]
 
         # 将嵌入和位置编码相加。
@@ -223,7 +229,8 @@ class Encoder(tf.keras.layers.Layer):
 
         for i in range(self.num_layers):
             plus = x
-            x = self.enc_layers[i](x, training, mask)
+            self.enc_layers[i].mask=self.mask
+            x = self.enc_layers[i](x, training)
             x = self.Cnn_layers[i](x)
             x += plus
         return x  # (batch_size, input_seq_len, d_model)
@@ -246,10 +253,11 @@ class Decoder(tf.keras.layers.Layer):
                            range(num_layers)]
         self.dropout = tf.keras.layers.Dropout(rate)
         self.ffn = point_wise_feed_forward_network(d_model, dff)
-
+        self.look_ahead_mask=None
+        self.padding_mask=None
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, x, enc_output, training,
-             look_ahead_mask, padding_mask):
+    def call(self, x, enc_output, training=False,
+             ):
         seq_len = tf.shape(x)[1]
         # attention_weights = {}
 
@@ -261,8 +269,9 @@ class Decoder(tf.keras.layers.Layer):
 
         for i in range(self.num_layers):
             plus = x
-            x, block1, block2 = self.dec_layers[i](x, enc_output, training,
-                                                   look_ahead_mask, padding_mask)
+            self.dec_layers[i].look_ahead_mask=self.look_ahead_mask
+            self.dec_layers[i].padding_mask=self.padding_mask
+            x, block1, block2 = self.dec_layers[i](x, enc_output, training)
             x = self.Cnn_layers[i](x)
             x += plus
             # attention_weights['decoder_layer{}_block1'.format(i + 1)] = block1
@@ -309,41 +318,68 @@ class Transformer(tf.keras.Model):
         self.include_decoder = include_decoder
         self.start_id=1
         self.end_id=2
+        self.enc_mask=None
+        self.look_ahead_mask = None
+        self.padding_mask = None
     def _build(self):
-        x = tf.ones([1, 10])
-        self(x, x, True, None, None, None)
+        x = tf.ones([1,64],tf.int32)
+        y = tf.ones([1,64],tf.int32)
 
-    def decoder_part(self, enc_output,tar, training, enc_padding_mask, look_ahead_mask, dec_padding_mask):
+        if not (self.one2one and not self.include_decoder):
+            self(x, y)
+        else:
+            self(x)
+
+    def decoder_part(self, enc_output,tar=None, training=False):
         if not (self.one2one and not self.include_decoder):
             dec_output = self.decoder(
-                tar, enc_output, training, look_ahead_mask, dec_padding_mask)
+                tar, enc_output, training)
             x = dec_output
             for layer in self.dec_layers:
-                x, _, _ = layer(x, enc_output, training, look_ahead_mask, dec_padding_mask)
+                layer.look_ahead_mask=self.decoder.look_ahead_mask
+                layer.padding_mask=self.decoder.padding_mask
+                x, _, _ = layer(x, enc_output, training)
             x += dec_output
             final_output = self.final_layer(x)  # (batch_size, tar_seq_len, target_vocab_size)
             return final_output, dec_output
         else:
             x = enc_output
             for layer in self.map_encoders:
-                x = layer(x, training, enc_padding_mask)
+                layer.mask=self.encoder.mask
+                x = layer(x, training)
 
             final_output = self.final_layer(x)
 
             return final_output, enc_output
 
-    def call(self, inp, tar, training, enc_padding_mask,
-             look_ahead_mask, dec_padding_mask):
-        enc_output = self.encoder(inp, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_model)
-        return self.decoder_part(enc_output, tar, training, enc_padding_mask, look_ahead_mask, dec_padding_mask)
-        # dec_output.shape == (batch_size, tar_seq_len, d_model)
 
-    @tf.function(experimental_relax_shapes=True)
-    def recognize(self, inputs):
+    def set_masks(self, enc_padding_mask,look_ahead_mask,dec_padding_mask):
+        self.encoder.mask = enc_padding_mask
+        if not (self.one2one and not self.include_decoder):
+            self.decoder.look_ahead_mask = look_ahead_mask
+            self.decoder.padding_mask = dec_padding_mask
+
+    def call(self,inp, tar=None,training=False):
+        if not (self.one2one and not self.include_decoder):
+            enc_padding_mask,look_ahead_mask,dec_padding_mask=create_masks(inp, tar)
+            self.set_masks(enc_padding_mask, look_ahead_mask, dec_padding_mask)
+        else:
+            enc_padding_mask=create_padding_mask(inp)
+            self.encoder.mask=enc_padding_mask
+
+        enc_output = self.encoder(inp,training=training)  # (batch_size, inp_seq_len, d_model)
+        return self.decoder_part(enc_output, tar,training=training)
+
+
+    @tf.function(experimental_relax_shapes=True,input_signature=[
+            tf.TensorSpec([None,None], dtype=tf.int32),
+        ])
+    def inference(self, inputs):
         if self.one2one:
-            # create_masks(inputs,inputs)
+
             enc_padding_mask = create_padding_mask(inputs)
-            out,_=self(inputs,inputs,False,enc_padding_mask,None,None)
+            self.set_masks(enc_padding_mask,None,enc_padding_mask)
+            out,_=self.call(inputs,inputs)
             out=tf.argmax(out,-1,tf.int32)
             return out
         else:
@@ -352,14 +388,16 @@ class Transformer(tf.keras.Model):
             decoded = tf.cast(tf.ones([batch,1])*self.start_id,tf.int32)
             b_i = 0
             B = tf.shape(inputs)[1] + 1
-            enc_output = self.encoder(inputs, False, enc_padding_mask)
+            self.encoder.mask=enc_padding_mask
+            enc_output = self.encoder(inputs, False)
             stop_flag=tf.zeros([batch],tf.float32)
             def _cond(b_i, B,stop_flag, decoded):
                 return tf.less(b_i, B)
 
             def _body(b_i, B,stop_flag, decoded):
-                # print(stop_flag)
-                yseq, _ = self.decoder_part(enc_output, decoded, False, None, None, None)
+
+                _, combined_mask, dec_padding_mask = create_masks(inputs, decoded)
+                yseq, _ = self.decoder_part(enc_output, decoded)
                 yseq = tf.argmax(yseq[:, -1], -1, tf.int32)
 
                 stop_flag+=tf.cast(tf.equal(yseq, self.end_id), 1.)
@@ -371,7 +409,7 @@ class Transformer(tf.keras.Model):
                 )
 
                 decoded = tf.concat([decoded, tf.expand_dims(yseq,-1)], axis=1)
-                # print(decoded.shape)
+
                 return hyps, B,stop_flag, decoded
 
             _, _,stop_flag, decoded = tf.while_loop(
@@ -388,76 +426,5 @@ class Transformer(tf.keras.Model):
 
             return decoded
 
-    @tf.function(experimental_relax_shapes=True, input_signature=[
-            tf.TensorSpec([None, None], dtype=tf.float32),
 
-        ])
-    def recognize_tflite(self, inputs):
-        if self.one2one:
-            # create_masks(inputs,inputs)
-            enc_padding_mask = create_padding_mask(inputs)
-            out, _ = self(inputs, inputs, False, enc_padding_mask, None, None)
-            out = tf.argmax(out, -1, tf.int32)
-            return out
-        else:
-            enc_padding_mask = create_padding_mask(inputs)
-            batch = tf.shape(inputs)[0]
-            decoded = tf.cast(tf.ones([batch, 1]) * self.start_id, tf.int32)
-            b_i = 0
-            B = tf.shape(inputs)[1] + 1
-            enc_output = self.encoder(inputs, False, enc_padding_mask)
-            stop_flag = tf.zeros([batch], tf.float32)
-
-            def _cond(b_i, B, stop_flag, decoded):
-                return tf.less(b_i, B)
-
-            def _body(b_i, B, stop_flag, decoded):
-                # print(stop_flag)
-                yseq, _ = self.decoder_part(enc_output, decoded, False, None, None, None)
-                yseq = tf.argmax(yseq[:, -1], -1, tf.int32)
-
-                stop_flag += tf.cast(tf.equal(yseq, self.end_id), 1.)
-
-                hyps = tf.cond(
-                    tf.reduce_all(tf.cast(stop_flag, tf.bool)),
-                    true_fn=lambda: B,
-                    false_fn=lambda: b_i + 1,
-                )
-
-                decoded = tf.concat([decoded, tf.expand_dims(yseq, -1)], axis=1)
-                # print(decoded.shape)
-                return hyps, B, stop_flag, decoded
-
-            _, _, stop_flag, decoded = tf.while_loop(
-                _cond,
-                _body,
-                loop_vars=(b_i, B, stop_flag, decoded),
-                shape_invariants=(
-                    tf.TensorShape([]),
-                    tf.TensorShape([]),
-                    tf.TensorShape([None]),
-                    tf.TensorShape([None, None])
-                )
-            )
-
-            return decoded
-
-
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
-    from utils.text_featurizers import TextFeaturizer
-    import time
-    config = UserConfig(r'D:\TF2-ASR\configs\lm_data.yml', r'D:\TF2-ASR\configs\transformer.yml')
-    vocab_featurizer = TextFeaturizer(config['lm_vocab'])
-    word_featurizer = TextFeaturizer(config['lm_word'])
-    model_config = config['model_config']
-    model_config.update(
-        {'input_vocab_size': vocab_featurizer.num_classes, 'target_vocab_size': word_featurizer.num_classes})
-    model = Transformer(**model_config)
-    model._build()
-    model.recognize(np.ones([2, 10]))
-    s=time.time()
-    c=model.recognize(np.ones([2,10]))
-    e=time.time()
-    print(c,e-s)
 

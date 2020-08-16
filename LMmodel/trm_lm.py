@@ -1,6 +1,4 @@
-from LMmodel.tf2_trm import Transformer,create_masks
-import tensorflow as tf
-import os
+from LMmodel.tf2_trm import Transformer
 import logging
 import numpy as np
 from utils.text_featurizers import TextFeaturizer
@@ -22,6 +20,13 @@ class LM():
             logging.info('lm loading model failed.')
         self.model.start_id=self.word_featurizer.start
         self.model.end_id=self.word_featurizer.stop
+
+    def convert_to_pb(self, ):
+        import tensorflow as tf
+        self.model.inference(np.ones([1,10],'int32'))
+
+        concrete_func = self.model.inference.get_concrete_function()
+        tf.saved_model.save(self.model, './test_model', signatures=concrete_func)
     def load_checkpoint(self, ):
         """Load checkpoint."""
 

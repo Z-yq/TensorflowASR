@@ -1,20 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright 2020 The Tacotron-2 Authors, Minh Nguyen (@dathudeptrai), Eren Gölge (@erogol) and Jae Yoo (@jaeyoo)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""Tacotron-2 Modules."""
-
 import collections
 import numpy as np
 
@@ -25,7 +8,7 @@ from tensorflow_addons.seq2seq import BahdanauAttention
 
 from tensorflow_addons.seq2seq import Decoder
 from AMmodel.layers.decoder import dynamic_decode
-
+# from tensorflow_addons.seq2seq import dynamic_decode
 
 class LASConfig():
     def __init__(self,
@@ -430,6 +413,7 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
 
     def call(self, inputs, states):
         """Call logic."""
+        # tf.print(inputs.shape)
         decoder_input = self.decoder_embedding(inputs)[:,0,:]
 
         # 1. apply prenet for decoder_input.
@@ -568,7 +552,7 @@ class LAS(tf.keras.Model):
         )
         self.config = config
         self.use_window_mask = False
-        self.maximum_iterations = 10
+        self.maximum_iterations = 100
         self.enable_tflite_convertible = enable_tflite_convertible
 
     def setup_window(self, win_front, win_back):
@@ -582,18 +566,16 @@ class LAS(tf.keras.Model):
         self.maximum_iterations = maximum_iterations
 
     def _build(self, shape, training):
-        targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
-        targets=targets[:,:,np.newaxis]
-        targets_lengths = np.array([9])
+        # targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
+        # targets=targets[:,:,np.newaxis]
+        # targets_lengths = np.array([9])
 
         inputs = np.random.normal(size=shape).astype(np.float32)
         input_lengths = np.array([shape[-2]//4])
         self(
             inputs,
             input_lengths,
-            targets,
-            targets_lengths,
-            10,
+
             training=training,
         )
     def add_featurizers(self,
@@ -606,14 +588,12 @@ class LAS(tf.keras.Model):
         """
 
         self.text_featurizer = text_featurizer
-    # @tf.function(experimental_relax_shapes=True)
+    @tf.function(experimental_relax_shapes=True)
     def call(
             self,
-            inputs,
-            input_lengths,
-            targets,
-            targets_lengths,
-            maximum_iterations=50,
+            inputs, input_lengths,
+            targets=None,
+            targets_lengths=None,
             use_window_mask=False,
             win_front=2,
             win_back=3,
@@ -621,6 +601,7 @@ class LAS(tf.keras.Model):
     ):
         """Call logic."""
         # Encoder Step.
+        # input_lengths=tf.squeeze(input_lengths,-1)
         encoder_hidden_states = self.encoder(
             inputs, training=training
         )
@@ -632,8 +613,11 @@ class LAS(tf.keras.Model):
         # 2. alignment_size for attention size.
         # 3. initial state for decoder cell.
         # 4. memory (encoder hidden state) for attention mechanism.
-        self.decoder.sampler.setup_target(targets=targets, targets_lengths=targets_lengths)
+        if targets is not None:
+            self.decoder.sampler.setup_target(targets=targets, targets_lengths=targets_lengths)
+        self.decoder.sampler.set_batch_size(batch_size)
         self.decoder.cell.set_alignment_size(alignment_size)
+
         self.decoder.setup_decoder_init_state(
             self.decoder.cell.get_initial_state(batch_size)
         )
@@ -644,128 +628,6 @@ class LAS(tf.keras.Model):
         if use_window_mask:
             self.decoder.cell.attention_layer.setup_window(
                 win_front=win_front, win_back=win_back
-            )
-
-        # run decode step.
-        (
-            (classes_prediction, stop_token_prediction, _),
-            final_decoder_state,
-            _,
-        ) = dynamic_decode(self.decoder,
-                           maximum_iterations=maximum_iterations,
-                           enable_tflite_convertible=self.enable_tflite_convertible)
-
-        decoder_output = tf.reshape(
-            classes_prediction, [batch_size, -1, self.config.n_classes]
-        )
-        stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
-
-        if self.enable_tflite_convertible:
-            mask = tf.math.not_equal(
-                tf.cast(tf.reduce_sum(tf.abs(decoder_output), axis=-1),
-                        dtype=tf.int32),
-                0)
-            decoder_output = tf.expand_dims(
-                tf.boolean_mask(decoder_output, mask), axis=0)
-            alignment_history = ()
-        else:
-            alignment_history = tf.transpose(
-                final_decoder_state.alignment_history.stack(), [1, 2, 0]
-            )
-
-        return decoder_output, stop_token_prediction, alignment_history
-    def recognize(self,features):
-        features_length=np.array([features.shape[1]],np.int32)
-        return self.inference(features,features_length)
-
-    def recognize_tflite(self,features):
-        features_length = np.array([features.shape[1]], np.int32)
-        return self.inference_tflite(features, features_length)
-    @tf.function(
-        experimental_relax_shapes=True,
-        input_signature=[
-            tf.TensorSpec([None, None,None,None], dtype=tf.float32),
-            tf.TensorSpec([None, ], dtype=tf.int32),
-        ],
-    )
-    def inference(self, inputs, input_lengths):
-        """Call logic."""
-
-        # Encoder Step.
-        encoder_hidden_states = self.encoder(
-            inputs, training=False
-        )
-        batch_size = tf.shape(encoder_hidden_states)[0]
-        alignment_size = tf.shape(encoder_hidden_states)[1]
-
-        # Setup some initial placeholders for decoder step. Include:
-        # 1. batch_size for inference.
-        # 2. alignment_size for attention size.
-        # 3. initial state for decoder cell.
-        # 4. memory (encoder hidden state) for attention mechanism.
-        # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
-        self.decoder.sampler.set_batch_size(batch_size)
-        self.decoder.cell.set_alignment_size(alignment_size)
-        # self.setup_maximum_iterations(alignment_size)
-        self.decoder.setup_decoder_init_state(
-            self.decoder.cell.get_initial_state(batch_size)
-        )
-        self.decoder.cell.attention_layer.setup_memory(
-            memory=encoder_hidden_states,
-            memory_sequence_length=input_lengths,  # use for mask attention.
-        )
-        if self.use_window_mask:
-            self.decoder.cell.attention_layer.setup_window(
-                win_front=self.win_front, win_back=self.win_back
-            )
-
-        (
-            (classes_prediction, stop_token_prediction, _),
-            final_decoder_state,
-            _,
-        ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
-
-        decoder_output = tf.reshape(
-            classes_prediction, [batch_size, -1, self.config.n_classes]
-        )
-        stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
-
-        alignment_history = tf.transpose(
-            final_decoder_state.alignment_history.stack(), [1, 2, 0]
-        )
-
-        return [decoder_output, stop_token_prediction, alignment_history]
-
-    @tf.function(
-        experimental_relax_shapes=True,
-        input_signature=[
-            tf.TensorSpec([1, None], dtype=tf.int32),
-            tf.TensorSpec([1, ], dtype=tf.int32),
-
-        ],
-    )
-    def inference_tflite(self, inputs, input_lengths):
-        """Call logic."""
-
-        encoder_hidden_states = self.encoder(
-            inputs, training=False
-        )
-
-        batch_size = tf.shape(encoder_hidden_states)[0]
-        alignment_size = tf.shape(encoder_hidden_states)[1]
-
-        self.decoder.sampler.set_batch_size(batch_size)
-        self.decoder.cell.set_alignment_size(alignment_size)
-        self.decoder.setup_decoder_init_state(
-            self.decoder.cell.get_initial_state(batch_size)
-        )
-        self.decoder.cell.attention_layer.setup_memory(
-            memory=encoder_hidden_states,
-            memory_sequence_length=input_lengths,  # use for mask attention.
-        )
-        if self.use_window_mask:
-            self.decoder.cell.attention_layer.setup_window(
-                win_front=self.win_front, win_back=self.win_back
             )
 
         # run decode step.
@@ -789,7 +651,6 @@ class LAS(tf.keras.Model):
                 0)
             decoder_output = tf.expand_dims(
                 tf.boolean_mask(decoder_output, mask), axis=0)
-
             alignment_history = ()
         else:
             alignment_history = tf.transpose(
@@ -797,3 +658,123 @@ class LAS(tf.keras.Model):
             )
 
         return decoder_output, stop_token_prediction, alignment_history
+    def return_pb_function(self,f,c):
+        @tf.function(
+            experimental_relax_shapes=True,
+            input_signature=[
+                tf.TensorSpec([None, None,f,c], dtype=tf.float32),
+                tf.TensorSpec([None, ], dtype=tf.int32),
+            ],
+        )
+        def inference( inputs, input_lengths):
+            """Call logic."""
+
+            # Encoder Step.
+            with tf.name_scope('inference'):
+
+
+                encoder_hidden_states = self.encoder.call(
+                    inputs, training=False
+                )
+                batch_size = tf.shape(encoder_hidden_states)[0]
+                alignment_size = tf.shape(encoder_hidden_states)[1]
+
+                # Setup some initial placeholders for decoder step. Include:
+                # 1. batch_size for inference.
+                # 2. alignment_size for attention size.
+                # 3. initial state for decoder cell.
+                # 4. memory (encoder hidden state) for attention mechanism.
+                # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
+                self.decoder.sampler.set_batch_size(batch_size)
+                self.decoder.cell.set_alignment_size(alignment_size)
+                # self.setup_maximum_iterations(alignment_size)
+                self.decoder.setup_decoder_init_state(
+                    self.decoder.cell.get_initial_state(batch_size)
+                )
+                self.decoder.cell.attention_layer.setup_memory(
+                    memory=encoder_hidden_states,
+                    memory_sequence_length=input_lengths,  # use for mask attention.
+                )
+                if self.use_window_mask:
+                    self.decoder.cell.attention_layer.setup_window(
+                        win_front=self.win_front, win_back=self.win_back
+                    )
+
+                (
+                    (classes_prediction, stop_token_prediction, _),
+                    final_decoder_state,
+                    _,
+                ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
+
+                decoder_output = tf.reshape(
+                    classes_prediction, [batch_size, -1, self.config.n_classes]
+                )
+                stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
+
+                alignment_history = tf.transpose(
+                    final_decoder_state.alignment_history.stack(), [1, 2, 0]
+                )
+
+            return [decoder_output, stop_token_prediction, alignment_history]
+        self.recognize_pb=inference
+
+    # @tf.function(
+    #     experimental_relax_shapes=True,
+    #     input_signature=[
+    #         tf.TensorSpec([None, None, 80, 4], dtype=tf.float32),
+    #         tf.TensorSpec([None, ], dtype=tf.int32),
+    #     ],
+    # )
+    # def inference_tflite(self, inputs, input_lengths):
+    #     """Call logic."""
+    #
+    #     encoder_hidden_states = self.encoder(
+    #         inputs, training=False
+    #     )
+    #
+    #     batch_size = tf.shape(encoder_hidden_states)[0]
+    #     alignment_size = tf.shape(encoder_hidden_states)[1]
+    #
+    #     self.decoder.sampler.set_batch_size(batch_size)
+    #     self.decoder.cell.set_alignment_size(alignment_size)
+    #     self.decoder.setup_decoder_init_state(
+    #         self.decoder.cell.get_initial_state(batch_size)
+    #     )
+    #     self.decoder.cell.attention_layer.setup_memory(
+    #         memory=encoder_hidden_states,
+    #         memory_sequence_length=input_lengths,  # use for mask attention.
+    #     )
+    #     if self.use_window_mask:
+    #         self.decoder.cell.attention_layer.setup_window(
+    #             win_front=self.win_front, win_back=self.win_back
+    #         )
+    #
+    #     # run decode step.
+    #     (
+    #         (classes_prediction, stop_token_prediction, _),
+    #         final_decoder_state,
+    #         _,
+    #     ) = dynamic_decode(self.decoder,
+    #                        maximum_iterations=self.maximum_iterations,
+    #                        enable_tflite_convertible=self.enable_tflite_convertible)
+    #
+    #     decoder_output = tf.reshape(
+    #         classes_prediction, [batch_size, -1, self.config.n_classes]
+    #     )
+    #     stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
+    #
+    #     if self.enable_tflite_convertible:
+    #         mask = tf.math.not_equal(
+    #             tf.cast(tf.reduce_sum(tf.abs(decoder_output), axis=-1),
+    #                     dtype=tf.int32),
+    #             0)
+    #         decoder_output = tf.expand_dims(
+    #             tf.boolean_mask(decoder_output, mask), axis=0)
+    #
+    #         alignment_history = ()
+    #     else:
+    #         alignment_history = tf.transpose(
+    #             final_decoder_state.alignment_history.stack(), [1, 2, 0]
+    #         )
+    #
+    #     return decoder_output, stop_token_prediction, alignment_history
