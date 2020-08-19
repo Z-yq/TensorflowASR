@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
 
 from trainer.base_runners import BaseTrainer
-from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss
+from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss,rnnt_ctc_loss
 from AMmodel.transducer_wrap import Transducer
 from utils.text_featurizers import TextFeaturizer
 
@@ -26,7 +26,7 @@ class TransducerTrainer(BaseTrainer):
         self.is_mixed_precision = is_mixed_precision
         self.global_batch_size = config['batch_size']
         if USE_TF:
-            self.rnnt_loss=tf_rnnt_loss
+            self.rnnt_loss=rnnt_ctc_loss
         else:
             self.rnnt_loss=rnnt_loss
     def set_train_metrics(self):
@@ -52,7 +52,7 @@ class TransducerTrainer(BaseTrainer):
             # print(logits.shape,target.shape)
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
-                                              , label_length=label_length, logit_length=input_length)
+                                              , label_length=label_length, logit_length=input_length,blank=self.text_featurizer.blank)
             else:
                 per_train_loss = self.rnnt_loss(
                 logits=logits, labels=labels, label_length=label_length,

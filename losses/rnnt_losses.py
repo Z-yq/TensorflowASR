@@ -240,7 +240,22 @@ def tf_rnnt_loss(logits, labels, label_length, logit_length):
 
         return compute_rnnt_loss_and_grad(*args)
 
+def rnnt_ctc_loss(logits, labels, label_length, logit_length, blank=0):
+    logits = tf.reduce_sum(logits, 2)
+    _,_,c=shape_list(logits)
+    if (c-1)==blank:
+        logits=tf.nn.softmax(logits,-1)
+        return tf.keras.backend.ctc_batch_cost(labels,logits,tf.expand_dims(logit_length,-1),tf.expand_dims(label_length,-1))
+    else:
 
+        return tf.nn.ctc_loss(
+        labels=tf.cast(labels, tf.int32),
+        logit_length=tf.cast(logit_length, tf.int32),
+        logits=tf.cast(logits, tf.float32),
+        label_length=tf.cast(label_length, tf.int32),
+        logits_time_major=False,
+        blank_index=blank
+    )
 @tf.function
 def rnnt_loss(logits, labels, label_length, logit_length, blank=0):
     if not tf.config.list_physical_devices('GPU'):

@@ -14,16 +14,14 @@ CTC\Transducer\LAS Default is Chinese ASR
 
 ## What's New?
 
--   Add DeepSpeech2
--   Fix some bugs
--   Convert to pb 
--   Support CTC structure to tflite
+-   ALL structure support batch decode
+-   Modify Transducer train\predict way `for More controllable and speed up,110ms in ~4.1S wav`
 
 
 ## Future
 -  To support tflite
 -  Fix bugs
--  Add other models
+-  Add Tester
 
 ## Supported Structure
 -  **CTC**
@@ -100,6 +98,7 @@ CTC\Transducer\LAS Default is Chinese ASR
     
     lm_result=lm.predict(am_result)
     ```
+
 
 ## Your Model
 

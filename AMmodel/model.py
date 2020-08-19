@@ -71,15 +71,18 @@ class AM():
             self.model._build([3,80,f,c])
             self.model._build([2, 80, f, c])
             self.model._build([1, 80, f, c])
+
         else:
             self.model._build([3, 80, f, c], training)
             self.model._build([1, 80, f, c], training)
             self.model._build([2, 80, f, c], training)
+
         try:
             self.load_checkpoint(self.config)
-
+            f, c = self.speech_feature.compute_feature_dim()
+            self.model.return_pb_function(f, c)
         except:
-            logging.info('lm loading model failed.')
+            print('am loading model failed.')
     def convert_to_pb(self,export_path):
         import tensorflow as tf
         f, c = self.speech_feature.compute_feature_dim()
@@ -96,7 +99,7 @@ class AM():
             else:
                 break
         return de
-    def predict(self,fp,return_string_list=True):
+    def predict(self,fp):
         if '.pcm' in fp:
             data=np.fromfile(fp,'int16')
             data=np.array(data,'float32')
@@ -106,11 +109,8 @@ class AM():
 
         mel=self.speech_feature.extract(data)
         mel=np.expand_dims(mel,0)
-        result=self.model.recognize(mel)[0]
-
-        if return_string_list:
-            result=result.numpy().argmax(-1)
-            result=self.decode_result(result)
+        length=np.expand_dims(np.array([mel.shape[1]//self.model.time_reduction_factor],'int32'),-1)
+        result=self.model.recognize_pb(mel,length)[0]
         return result
 
     def load_checkpoint(self,config):
@@ -121,4 +121,5 @@ class AM():
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
         self.init_steps= int(files[-1].split('_')[-1].replace('.h5', ''))
+        logging.info('load model:{}'.format(files[-1]))
 

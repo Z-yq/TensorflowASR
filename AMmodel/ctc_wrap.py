@@ -23,7 +23,7 @@ class CtcModel(tf.keras.Model):
         self.fc = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Dense(units=num_classes, activation="linear",
                                   use_bias=True), name="fully_connected")
-
+        self.recognize_pb=None
     def _build(self, sample_shape):
         features = tf.random.normal(shape=sample_shape)
         self(features, training=False)
@@ -45,108 +45,42 @@ class CtcModel(tf.keras.Model):
         outputs = self.fc(outputs, training=training)
         return outputs
 
-    @tf.function(
-        experimental_relax_shapes=True,
-        input_signature=[
-            tf.TensorSpec([None, None, 80,4], dtype=tf.float32)
-        ]
-    )
-    def recognize(self, features):
-        logits = self.call(features, training=False)
-        probs = tf.nn.softmax(logits)
-        if USE_TF:
-            decoded = tf.keras.backend.ctc_decode(
-                y_pred=probs, input_length=tf.expand_dims(tf.shape(probs)[1],0), greedy=True
-            )[0]
-            return decoded
-        else:
-            def map_fn(prob):
-                return tf.numpy_function(self.perform_greedy,
-                                         inp=[prob], Tout=tf.string)
-
-            return [tf.map_fn(map_fn, probs, dtype=tf.string)]
-
-    def perform_greedy(self, probs: np.ndarray):
-        decoded = ctc_greedy_decoder(probs, vocabulary=self.text_featurizer.vocab_array)
-        return tf.convert_to_tensor(decoded, dtype=tf.string)
     def return_pb_function(self,f,c,beam=False):
         @tf.function(
             experimental_relax_shapes=True,
             input_signature=[
                 tf.TensorSpec([None,None,f,c], dtype=tf.float32),
+                tf.TensorSpec([None,1], dtype=tf.int32),
 
             ]
         )
-        def recognize_tflite(features):
-            """
-            Function to convert to tflite using greedy decoding
-            Args:
-                features: tf.Tensor with shape [None,None,None,None] indicating a input
-
-            Return:
-                decoded: tf.Tensor of Unicode Code Points with shape [None] and dtype tf.int32
-            """
-
-            # features=self.speech_featurizer.extract(audio)
+        def recognize_tflite(features,length):
 
             logits = self.call(features, training=False)
             probs = tf.nn.softmax(logits)
             decoded = tf.keras.backend.ctc_decode(
-                y_pred=probs, input_length=tf.expand_dims(tf.shape(probs)[1],0), greedy=True
+                y_pred=probs, input_length=tf.squeeze(length,-1), greedy=True
             )[0][0]
-            # transcript = self.text_featurizer.index2upoints(tf.cast(decoded[0][0], dtype=tf.int32))
-            return decoded
+            return [decoded]
 
         @tf.function(
             experimental_relax_shapes=True,
             input_signature=[
                 tf.TensorSpec([None, None, f, c], dtype=tf.float32),
+                tf.TensorSpec([None, 1], dtype=tf.int32),
             ]
         )
-        def recognize_beam_tflite( features):
+        def recognize_beam_tflite( features,length):
 
             logits = self.call(features, training=False)
             probs = tf.nn.softmax(logits)
             decoded = tf.keras.backend.ctc_decode(
-                y_pred=probs, input_length=tf.expand_dims(tf.shape(probs)[1],0), greedy=False,
+                y_pred=probs, input_length=tf.squeeze(length,-1), greedy=False,
                 beam_width=self.text_featurizer.decoder_config["beam_width"]
             )[0][0]
-            # transcript = self.text_featurizer.index2upoints(tf.cast(decoded[0][0], dtype=tf.int32))
-            return decoded
+            return [decoded]
 
         self.recognize_pb =recognize_tflite if not beam else recognize_beam_tflite
-        # transcript = self.text_featurizer.index2upoints(tf.cast(decoded[0][0], dtype=tf.int32))
-        # return tf.squeeze(transcript, axis=0)
-
-    @tf.function(
-        experimental_relax_shapes=True,
-        input_signature=[
-            tf.TensorSpec([None, None, None, None], dtype=tf.float32),
-            tf.TensorSpec([], dtype=tf.bool)
-        ]
-    )
-    def recognize_beam(self, features, lm=False):
-        logits = self.call(features, training=False)
-        probs = tf.nn.softmax(logits)
-
-        def map_fn(prob):
-            return tf.numpy_function(self.perform_beam_search,
-                                     inp=[prob, lm], Tout=tf.string)
-
-        return tf.map_fn(map_fn, probs, dtype=tf.string)
-
-    def perform_beam_search(self,
-                            probs: np.ndarray,
-                            lm: bool = False):
-        decoded = ctc_beam_search_decoder(
-            probs_seq=probs,
-            vocabulary=self.text_featurizer.vocab_array,
-            beam_size=self.text_featurizer.decoder_config["beam_width"],
-            ext_scoring_func=self.text_featurizer.scorer if lm else None
-        )
-        decoded = decoded[0][-1]
-
-        return tf.convert_to_tensor(decoded, dtype=tf.string)
 
 
 
