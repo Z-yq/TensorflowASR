@@ -153,7 +153,7 @@ class YourModelLAS(LAS):
                 config,# the config dict in model yml
                 training,
                  **kwargs):
-        config['LAS_decoder'].update({'encoder_dim':config['dmodel']})
+        config['LAS_decoder'].update({'encoder_dim':encoder_dim})# encoder_dim is your encoder's last dimension
         decoder_config=LASConfig(**config['LAS_decoder'])
 
         super(YourModelLAS, self).__init__(
