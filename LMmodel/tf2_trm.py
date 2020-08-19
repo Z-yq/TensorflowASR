@@ -198,16 +198,16 @@ class DecoderLayer(tf.keras.layers.Layer):
 
 
 class Encoder(tf.keras.layers.Layer):
-    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
+    def __init__(self, num_layers, d_model,embedding_dim, num_heads, dff, input_vocab_size,
                  maximum_position_encoding, rate=0.1):
         super(Encoder, self).__init__()
 
         self.d_model = d_model
         self.num_layers = num_layers
-
-        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
+        self.input_embedding_projecter = tf.keras.layers.Dense(d_model, activation='elu')
+        self.embedding = tf.keras.layers.Embedding(input_vocab_size, embedding_dim)
         self.pos_encoding = positional_encoding(maximum_position_encoding,
-                                                self.d_model)
+                                                embedding_dim)
 
         self.enc_layers = [EncoderLayer(d_model, num_heads, dff, rate)
                            for _ in range(num_layers)]
@@ -226,7 +226,7 @@ class Encoder(tf.keras.layers.Layer):
         x += self.pos_encoding[:, :seq_len, :]
 
         x = self.dropout(x, training=training)
-
+        x=self.input_embedding_projecter(x)
         for i in range(self.num_layers):
             plus = x
             self.enc_layers[i].mask=self.mask
@@ -237,16 +237,16 @@ class Encoder(tf.keras.layers.Layer):
 
 
 class Decoder(tf.keras.layers.Layer):
-    def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
+    def __init__(self, num_layers, d_model,embedding_dim, num_heads, dff, target_vocab_size,
                  maximum_position_encoding, rate=0.1):
         super(Decoder, self).__init__()
 
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
-        self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
-
+        self.embedding = tf.keras.layers.Embedding(target_vocab_size, embedding_dim)
+        self.pos_encoding = positional_encoding(maximum_position_encoding,embedding_dim)
+        self.input_embedding_projecter = tf.keras.layers.Dense(d_model, activation='elu')
         self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
                            for _ in range(num_layers)]
         self.Cnn_layers = [tf.keras.layers.Conv1D(d_model, 3, padding='causal', activation='relu') for _ in
@@ -266,7 +266,7 @@ class Decoder(tf.keras.layers.Layer):
         x += self.pos_encoding[:, :seq_len, :]
 
         x = self.dropout(x, training=training)
-
+        x= self.input_embedding_projecter(x)
         for i in range(self.num_layers):
             plus = x
             self.dec_layers[i].look_ahead_mask=self.look_ahead_mask
@@ -300,14 +300,16 @@ def create_masks(inp, tar):
 
 
 class Transformer(tf.keras.Model):
-    def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
+    def __init__(self, num_layers, d_model, enc_embedding_dim,dec_embedding_dim,num_heads, dff, input_vocab_size,
                  target_vocab_size, pe_input, pe_target, rate=0.1, one2one=False, include_decoder=True, **kwargs):
         super(Transformer, self).__init__()
 
-        self.encoder = Encoder(num_layers, d_model, num_heads, dff,
+        self.encoder = Encoder(num_layers, d_model, enc_embedding_dim, num_heads, dff,
                                input_vocab_size, pe_input, rate)
+
+        self.to_bert_embedding_projecter=tf.keras.layers.Dense(768,activation='elu')
         if not (one2one and not include_decoder):
-            self.decoder = Decoder(num_layers - 1, d_model, num_heads, dff,
+            self.decoder = Decoder(num_layers - 1, d_model, dec_embedding_dim,num_heads, dff,
                                    target_vocab_size, pe_target, rate)
             self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
                                for _ in range(max(num_layers - 1, 1))]
@@ -334,6 +336,7 @@ class Transformer(tf.keras.Model):
         if not (self.one2one and not self.include_decoder):
             dec_output = self.decoder(
                 tar, enc_output, training)
+            bert_out=self.to_bert_embedding_projecter(dec_output)
             x = dec_output
             for layer in self.dec_layers:
                 layer.look_ahead_mask=self.decoder.look_ahead_mask
@@ -341,8 +344,9 @@ class Transformer(tf.keras.Model):
                 x, _, _ = layer(x, enc_output, training)
             x += dec_output
             final_output = self.final_layer(x)  # (batch_size, tar_seq_len, target_vocab_size)
-            return final_output, dec_output
+            return final_output, bert_out
         else:
+            bert_out= self.to_bert_embedding_projecter( enc_output)
             x = enc_output
             for layer in self.map_encoders:
                 layer.mask=self.encoder.mask
@@ -350,7 +354,7 @@ class Transformer(tf.keras.Model):
 
             final_output = self.final_layer(x)
 
-            return final_output, enc_output
+            return final_output,bert_out
 
 
     def set_masks(self, enc_padding_mask,look_ahead_mask,dec_padding_mask):
@@ -427,4 +431,21 @@ class Transformer(tf.keras.Model):
             return decoded
 
 
+if __name__ == '__main__':
+    from utils.user_config import UserConfig
+    from utils.text_featurizers import TextFeaturizer
+    import time
+    config = UserConfig(r'D:\TF2-ASR\configs\lm_data.yml', r'D:\TF2-ASR\configs\transformer.yml')
+    vocab_featurizer = TextFeaturizer(config['lm_vocab'])
+    word_featurizer = TextFeaturizer(config['lm_word'])
+    model_config = config['model_config']
+    model_config.update(
+        {'input_vocab_size': vocab_featurizer.num_classes, 'target_vocab_size': word_featurizer.num_classes})
+    model = Transformer(**model_config)
+    model._build()
+    model.recognize(np.ones([2, 10]))
+    s=time.time()
+    c=model.recognize(np.ones([2,10]))
+    e=time.time()
+    print(c,e-s)
 

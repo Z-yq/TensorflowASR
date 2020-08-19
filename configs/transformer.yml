@@ -1,7 +1,9 @@
 model_config:
   name: Transformer
   num_layers: 3
-  d_model: 768
+  d_model: 256
+  enc_embedding_dim: 512
+  dec_embedding_dim: 512
   num_heads: 8
   dff: 1024
   pe_input: 1024
