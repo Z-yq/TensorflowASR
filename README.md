@@ -31,6 +31,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 ## Supported Models
 
 -   **Conformer** 
+-   **DeepSpeech2**
 -   **Transformer**` Pinyin to Chinese characters` 
        -  O2O-Encoder-Decoder `Complete transformer,and one to one relationship between phoneme and target
 ,e.g.: pin4 yin4-> 拼音`
