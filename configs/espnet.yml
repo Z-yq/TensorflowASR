@@ -1,0 +1,36 @@
+model_config:
+  name: ESPNetCTC #ESPNetTransducer/ESPNetCTC/ESPNetLAS
+  filter_size: 128
+  kernel_size: 3
+  block_1_num: 4
+  block_2_num: 6
+  dropout: 0.1
+  fc_factor: 0.5
+  head_size: 64
+  num_heads: 4
+Transducer_decoder:
+  embed_dim: 144
+  embed_dropout: 0.0
+  num_lstms: 1
+  lstm_units: 320
+  joint_dim: 1024
+LAS_decoder:
+  n_classes: None
+  embedding_hidden_size: 512
+  initializer_range: 0.02
+  layer_norm_eps: 1e-6
+  n_prenet_layers: 2
+  prenet_units: 256
+  prenet_activation: "mish"
+  prenet_dropout_rate: 0.5
+  n_lstm_decoder: 1
+  decoder_lstm_units: 256
+  attention_dim: 128
+  attention_filters: 32
+  attention_kernel: 31
+enable_tflite_convertible: False #not support True
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
