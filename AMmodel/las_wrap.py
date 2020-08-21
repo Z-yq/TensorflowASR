@@ -566,18 +566,24 @@ class LAS(tf.keras.Model):
         self.maximum_iterations = maximum_iterations
 
     def _build(self, shape, training):
-        # targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
-        # targets=targets[:,:,np.newaxis]
-        # targets_lengths = np.array([9])
 
+        batch=shape[0]
         inputs = np.random.normal(size=shape).astype(np.float32)
-        input_lengths = np.array([[shape[-2]//4]],'int32')
-        self(
-            inputs,
-            input_lengths,
+        input_lengths = np.array([shape[-2]//4]*batch,'int32')
+        print(input_lengths.shape)
+        if training:
+            targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]*batch)
+            targets = targets[:, :, np.newaxis]
+            targets_lengths = np.array([9]*batch)
+            self(inputs,input_lengths,
+                 targets,targets_lengths)
+        else:
+            self(
+                inputs,
+                input_lengths,
 
-            training=training,
-        )
+                training=training,
+            )
     def add_featurizers(self,
                         text_featurizer):
         """
@@ -601,7 +607,7 @@ class LAS(tf.keras.Model):
     ):
         """Call logic."""
         # Encoder Step.
-        input_lengths=tf.squeeze(input_lengths,-1)
+        # input_lengths=tf.squeeze(input_lengths,-1)
         encoder_hidden_states = self.encoder(
             inputs, training=training
         )
