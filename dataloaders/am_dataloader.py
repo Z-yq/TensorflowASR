@@ -8,7 +8,7 @@ import random
 
 class AM_DataLoader():
 
-    def __init__(self, config_dict):
+    def __init__(self, config_dict,training=True):
         self.speech_config = config_dict['speech_config']
 
 
@@ -18,7 +18,7 @@ class AM_DataLoader():
         self.batch = config_dict['learning_config']['running_config']['batch_size']
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.text_featurizer = TextFeaturizer(self.text_config)
-        self.make_file_list(self.speech_config['train_list'])
+        self.make_file_list(self.speech_config['train_list'] if training else self.speech_config['eval_list'],training)
         self.augment = Augmentation(self.augment_config)
         self.init_text_to_vocab()
         self.epochs = 1
@@ -26,6 +26,8 @@ class AM_DataLoader():
         self.steps = 0
     def get_per_epoch_steps(self):
         return len(self.train_list)//self.batch
+    def eval_per_epoch_steps(self):
+        return len(self.test_list)//self.batch
     def init_text_to_vocab(self):
         pypinyin.load_phrases_dict({'调大': [['tiáo'], ['dà']],
                                     '调小': [['tiáo'], ['xiǎo']],
@@ -87,15 +89,19 @@ class AM_DataLoader():
 
         return x, wavs_, input_length, label_, label_length_
 
-    def make_file_list(self, wav_list):
+    def make_file_list(self, wav_list,training=True):
         with open(wav_list, encoding='utf-8') as f:
             data = f.readlines()
+        data=[i.strip()  for i in data if i!='']
         num = len(data)
-        self.train_list = data[:int(num * 0.99)]
-        self.test_list = data[int(num * 0.99):]
-        np.random.shuffle(self.train_list)
-        self.pick_index = [0.] * len(self.train_list)
-
+        if training:
+            self.train_list = data[:int(num * 0.99)]
+            self.test_list = data[int(num * 0.99):]
+            np.random.shuffle(self.train_list)
+            self.pick_index = [0.] * len(self.train_list)
+        else:
+            self.test_list=data
+            self.offset=0
     def only_chinese(self, word):
 
         for ch in word:
@@ -105,7 +111,72 @@ class AM_DataLoader():
                 return False
 
         return True
+    def eval_data_generator(self):
+        sample=self.test_list[self.offset:self.offset+self.batch]
+        self.offset+=self.batch
+        mels = []
+        input_length = []
 
+        y1 = []
+        label_length1 = []
+
+        wavs = []
+
+        max_wav = 0
+        max_input = 0
+        max_label1 = 0
+        for i in sample:
+            wp, txt = i.strip().split('\t')
+            try:
+                data = self.speech_featurizer.load_wav(wp)
+            except:
+                print('load data failed')
+                continue
+            if len(data) < 400:
+                continue
+            elif len(data) > self.speech_featurizer.sample_rate * 7:
+                continue
+
+            if not self.only_chinese(txt):
+                continue
+            speech_feature = self.speech_featurizer.extract(data)
+            max_input = max(max_input, speech_feature.shape[0])
+
+            py3 = self.text_to_vocab(txt)
+            if len(py3) == 0:
+                continue
+
+            text_feature = self.text_featurizer.extract(py3)
+            max_label1 = max(max_label1, len(text_feature))
+            max_wav = max(max_wav, len(data))
+            if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(text_feature):
+                continue
+            mels.append(speech_feature)
+            wavs.append(data)
+            input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
+            y1.append(np.array(text_feature))
+            label_length1.append(len(text_feature))
+
+        for i in range(len(mels)):
+            if mels[i].shape[0] < max_input:
+                pad = np.ones([max_input - mels[i].shape[0], mels[i].shape[1], mels[i].shape[2]]) * mels[i].min()
+                mels[i] = np.vstack((mels[i], pad))
+
+        wavs = self.speech_featurizer.pad_signal(wavs, max_wav)
+        for i in range(len(y1)):
+            if y1[i].shape[0] < max_label1:
+                pad = np.ones(max_label1 - y1[i].shape[0]) * self.text_featurizer.pad
+                y1[i] = np.hstack((y1[i], pad))
+
+        x = np.array(mels, 'float32')
+        y1 = np.array(y1, 'int32')
+
+        input_length = np.array(input_length, 'int32')
+        label_length1 = np.array(label_length1, 'int32')
+
+        wavs = np.array(np.expand_dims(wavs, -1), 'float32')
+
+        return x, wavs, input_length, y1, label_length1
     def generator(self, train=True):
 
         if train:
@@ -131,7 +202,6 @@ class AM_DataLoader():
         max_label1 = 0
         for i in sample:
             wp, txt = i.strip().split('\t')
-            wp=wp.replace(r'data_aishell\data_aishell','data_aishell')
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
@@ -139,7 +209,7 @@ class AM_DataLoader():
                 continue
             if len(data) < 400:
                 continue
-            elif len(data) > self.speech_featurizer.sample_rate * 15:
+            elif len(data) > self.speech_featurizer.sample_rate * 7:
                 continue
 
             if not self.only_chinese(txt):

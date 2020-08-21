@@ -552,7 +552,7 @@ class LAS(tf.keras.Model):
         )
         self.config = config
         self.use_window_mask = False
-        self.maximum_iterations = 100
+        self.maximum_iterations = 10
         self.enable_tflite_convertible = enable_tflite_convertible
 
     def setup_window(self, win_front, win_back):
@@ -601,7 +601,7 @@ class LAS(tf.keras.Model):
     ):
         """Call logic."""
         # Encoder Step.
-        # input_lengths=tf.squeeze(input_lengths,-1)
+        input_lengths=tf.squeeze(input_lengths,-1)
         encoder_hidden_states = self.encoder(
             inputs, training=training
         )
@@ -715,7 +715,7 @@ class LAS(tf.keras.Model):
                 alignment_history = tf.transpose(
                     final_decoder_state.alignment_history.stack(), [1, 2, 0]
                 )
-
-            return [decoder_output, stop_token_prediction, alignment_history]
+            decoder_output=tf.argmax(decoder_output,-1)
+            return [decoder_output]
         self.recognize_pb=inference
 

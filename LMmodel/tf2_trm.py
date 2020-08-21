@@ -346,8 +346,9 @@ class Transformer(tf.keras.Model):
             final_output = self.final_layer(x)  # (batch_size, tar_seq_len, target_vocab_size)
             return final_output, bert_out
         else:
-            bert_out= self.to_bert_embedding_projecter( enc_output)
             x = enc_output
+            bert_out= self.to_bert_embedding_projecter( enc_output)
+
             for layer in self.map_encoders:
                 layer.mask=self.encoder.mask
                 x = layer(x, training)
@@ -379,6 +380,7 @@ class Transformer(tf.keras.Model):
             tf.TensorSpec([None,None], dtype=tf.int32),
         ])
     def inference(self, inputs):
+        self.set_masks(None,None,None)
         if self.one2one:
 
             enc_padding_mask = create_padding_mask(inputs)
@@ -400,7 +402,7 @@ class Transformer(tf.keras.Model):
 
             def _body(b_i, B,stop_flag, decoded):
 
-                _, combined_mask, dec_padding_mask = create_masks(inputs, decoded)
+
                 yseq, _ = self.decoder_part(enc_output, decoded)
                 yseq = tf.argmax(yseq[:, -1], -1, tf.int32)
 

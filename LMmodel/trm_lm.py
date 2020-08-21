@@ -2,6 +2,7 @@ from LMmodel.tf2_trm import Transformer
 import logging
 import numpy as np
 from utils.text_featurizers import TextFeaturizer
+import os
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class LM():
     def __init__(self,config):
@@ -47,11 +48,9 @@ class LM():
         return de
 
 
-    def predict(self,pins,return_string_list=True):
+    def predict(self,pins):
         x=self.encode(pins,self.vocab_featurizer)
-        result=self.model.recognize(x)
-        if return_string_list:
-            result=self.decode(result,self.word_featurizer)
+        result=self.model.inference(x)
         return result
 
 

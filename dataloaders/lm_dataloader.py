@@ -6,8 +6,10 @@ from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_check
 import random
 
 class LM_DataLoader():
-    def __init__(self, config):
+    def __init__(self, config,training=True):
+        self.train = training
         self.init_all(config)
+
         self.vocab_featurizer = TextFeaturizer(config['lm_vocab'])
         self.word_featurizer = TextFeaturizer(config['lm_word'])
         self.init_text_to_vocab()
@@ -18,15 +20,19 @@ class LM_DataLoader():
         return model
     def get_per_epoch_steps(self):
         return len(self.train_texts)//self.batch
+
+    def eval_per_epoch_steps(self):
+        return len(self.test_texts) // self.batch
     def init_all(self, config):
-        bert_config = config['bert']['config_json']
-        bert_checkpoint =config['bert']['bert_ckpt']
-        bert_vocab =config['bert']['bert_vocab']
-        bert_vocabs = load_vocabulary(bert_vocab)
-        self.bert_token = Tokenizer(bert_vocabs)
-        self.bert = self.init_bert(bert_config, bert_checkpoint)
-        self.train_texts,self.test_texts = self.get_sentence(config['train_list'])
-        self.train_pick=[0]*len(self.train_texts)
+        if self.train:
+            bert_config = config['bert']['config_json']
+            bert_checkpoint =config['bert']['bert_ckpt']
+            bert_vocab =config['bert']['bert_vocab']
+            bert_vocabs = load_vocabulary(bert_vocab)
+            self.bert_token = Tokenizer(bert_vocabs)
+            self.bert = self.init_bert(bert_config, bert_checkpoint)
+        self.get_sentence(config['train_list'] if self.train else config['eval_list'],training=self.train)
+
     def init_text_to_vocab(self):
         pypinyin.load_phrases_dict({'调大': [['tiáo'], ['dà']],
                                     '调小': [['tiáo'], ['xiǎo']],
@@ -44,8 +50,9 @@ class LM_DataLoader():
 
         self.text_to_vocab = text_to_vocab_func
 
-    def get_sentence(self, data_path):
+    def get_sentence(self, data_path,training):
         from tqdm import tqdm
+
         with open(data_path, encoding='utf-8') as f:
             data = f.readlines()
 
@@ -55,10 +62,15 @@ class LM_DataLoader():
             if len(txt) > 150:
                 continue
             txts.append(txt)
-        num=len(txts)
-        train=txts[:int(num*0.99)]
-        test=txts[int(num*0.99):]
-        return train,test
+        if training:
+            num=len(txts)
+            train=txts[:int(num*0.99)]
+            test=txts[int(num*0.99):]
+            self.train_texts, self.test_texts=train,test
+            self.train_pick = [0] * len(self.train_texts)
+        else:
+            self.test_texts=txts
+            self.offset=0
 
     def preprocess(self, tokens, txts):
         x = []
@@ -145,6 +157,19 @@ class LM_DataLoader():
 
         return x, y, e_features
 
+    def eval_generate(self,):
+
+
+        sample = self.test_texts[self.offset:self.offset+self.batch]
+        self.offset+=self.batch
+        trainx = [self.text_to_vocab(i) for i in sample]
+        trainy = sample
+        x, y = self.preprocess(trainx, trainy)
+        x = self.pad(x)
+        y = self.pad(y)
+        x = np.array(x,'int32')
+        y = np.array(y,'int32')
+        return x, y
 
 if __name__ == '__main__':
     from utils.user_config import UserConfig

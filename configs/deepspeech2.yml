@@ -1,7 +1,7 @@
 
 
 model_config:
-  name: DeepSpeech2LAS #DeepSpeech2Transducer/DeepSpeech2CTC/DeepSpeech2LAS
+  name: DeepSpeech2Transducer #DeepSpeech2Transducer/DeepSpeech2CTC/DeepSpeech2LAS
   conv_conf:
     conv_type: 2
     conv_kernels: [[11, 41], [11, 21], [11, 11]]
@@ -39,3 +39,8 @@ model_config:
     attention_filters: 32
     attention_kernel: 31
   enable_tflite_convertible: False #not support True
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001

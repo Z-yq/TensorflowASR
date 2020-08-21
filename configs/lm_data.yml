@@ -1,5 +1,5 @@
 train_list: 'D:/TF2-ASR/lm_train_list.txt'
-
+eval_list: 'D:/TF2-ASR/lm_train_list.txt'
 lm_vocab:
   model_type: 'LM'
   vocabulary: 'D:/TF2-ASR/AMmodel/am_tokens.txt'

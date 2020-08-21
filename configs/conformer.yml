@@ -1,20 +1,7 @@
-# Copyright 2020 Huy Le Nguyen (@usimarit)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 model_config:
-  name: ConformerCTC #ConformerTransducer/ConformerCTC/ConformerLAS
-  dmodel: 144
+  name: ConformerLAS #ConformerTransducer/ConformerCTC/ConformerLAS
+  dmodel: 256
   reduction_factor: 4
   num_blocks: 6
   head_size: 64
@@ -22,7 +9,7 @@ model_config:
   kernel_size: 32
   fc_factor: 0.5
   dropout: 0.1
-  embed_dim: 144
+  embed_dim: 256
   embed_dropout: 0.0
   num_lstms: 1
   lstm_units: 320
@@ -41,6 +28,7 @@ model_config:
     attention_dim: 128
     attention_filters: 32
     attention_kernel: 31
+  enable_tflite_convertible: False # not support true
 
 optimizer_config:
   learning_rate: 0.0001

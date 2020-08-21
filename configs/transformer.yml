@@ -1,11 +1,11 @@
 model_config:
   name: Transformer
-  num_layers: 3
-  d_model: 256
-  enc_embedding_dim: 512
-  dec_embedding_dim: 512
-  num_heads: 8
-  dff: 1024
+  num_layers: 3  #for encoder and decoder
+  d_model: 128
+  enc_embedding_dim: 64
+  dec_embedding_dim: 64
+  num_heads: 4
+  dff: 256
   pe_input: 1024
   pe_target: 1024
   rate: 0.1

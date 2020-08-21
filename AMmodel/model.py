@@ -41,7 +41,7 @@ class AM():
             raise ('not in supported model list')
     def ds2_model(self,training):
         from AMmodel.deepspeech2 import DeepSpeech2CTC,DeepSpeech2LAS,DeepSpeech2Transducer
-        self.model_config['Transducer_decoder'].update({'vocabulary_size': self.text_feature.num_classes})
+
         f,c=self.speech_feature.compute_feature_dim()
         input_shape=[None,f,c]
         self.model_config.update({'input_shape':input_shape})
@@ -52,16 +52,33 @@ class AM():
         elif self.model_config['name'] == 'DeepSpeech2CTC':
             self.model = DeepSpeech2CTC(input_shape,self.model_config,self.text_feature.num_classes)
         elif self.model_config['name'] == 'DeepSpeech2LAS':
-            self.config['model_config']['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
-            self.config['model_config']['LAS_decoder'].update({'startid': self.text_feature.start})
+            self.config['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
+            self.config['LAS_decoder'].update({'startid': self.text_feature.start})
             self.model = DeepSpeech2LAS(self.model_config,input_shape, training=training,
                                       enable_tflite_convertible=self.model_config[
+                                          'enable_tflite_convertible'])
+        else:
+            raise ('not in supported model list')
+    def espnet_model(self,training):
+        from AMmodel.espnet import ESPNetCTC,ESPNetLAS,ESPNetTransducer
+        self.config['Transducer_decoder'].update({'vocabulary_size': self.text_feature.num_classes})
+        if self.model_config['name'] == 'ESPNetTransducer':
+            self.model = ESPNetTransducer(self.config)
+        elif self.model_config['name'] == 'ESPNetCTC':
+            self.model = ESPNetCTC(self.model_config,self.text_feature.num_classes)
+        elif self.model_config['name'] == 'ESPNetLAS':
+            self.config['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
+            self.config['LAS_decoder'].update({'startid': self.text_feature.start})
+            self.model = ESPNetLAS(self.config, training=training,
+                                      enable_tflite_convertible=self.config[
                                           'enable_tflite_convertible'])
         else:
             raise ('not in supported model list')
     def load_model(self,training=True):
         if 'Conformer' in self.model_config['name']:
             self.conformer_model(training)
+        elif 'ESPNet' in self.model_config['name']:
+            self.espnet_model(training)
         else:
             self.ds2_model(training)
         self.model.add_featurizers(self.text_feature)
@@ -71,16 +88,13 @@ class AM():
             self.model._build([3,80,f,c])
             self.model._build([2, 80, f, c])
             self.model._build([1, 80, f, c])
-
         else:
             self.model._build([3, 80, f, c], training)
             self.model._build([1, 80, f, c], training)
             self.model._build([2, 80, f, c], training)
-
         try:
             self.load_checkpoint(self.config)
-            f, c = self.speech_feature.compute_feature_dim()
-            self.model.return_pb_function(f, c)
+
         except:
             print('am loading model failed.')
     def convert_to_pb(self,export_path):
@@ -99,7 +113,7 @@ class AM():
             else:
                 break
         return de
-    def predict(self,fp):
+    def predict(self,fp,return_string_list=True):
         if '.pcm' in fp:
             data=np.fromfile(fp,'int16')
             data=np.array(data,'float32')
@@ -109,8 +123,11 @@ class AM():
 
         mel=self.speech_feature.extract(data)
         mel=np.expand_dims(mel,0)
-        length=np.expand_dims(np.array([mel.shape[1]//self.model.time_reduction_factor],'int32'),-1)
-        result=self.model.recognize_pb(mel,length)[0]
+        result=self.model.recognize(mel)[0]
+
+        if return_string_list:
+            result=result.numpy().argmax(-1)
+            result=self.decode_result(result)
         return result
 
     def load_checkpoint(self,config):
@@ -121,5 +138,24 @@ class AM():
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
         self.init_steps= int(files[-1].split('_')[-1].replace('.h5', ''))
-        logging.info('load model:{}'.format(files[-1]))
 
+if __name__ == '__main__':
+    from utils.user_config import UserConfig
+    import tensorflow as tf
+    os.environ['CUDA_VISIBLE_DEVICES']='1'
+    am_config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml', r'D:\TF2-ASR\configs\conformer.yml')
+    am=AM(am_config)
+    print('load model')
+    am.load_model(False)
+    print('convert here')
+    am.model.return_pb_function(80, 4)
+    concere = am.model.recognize_pb.get_concrete_function()
+    converter = tf.lite.TFLiteConverter.from_concrete_functions(
+        [concere]
+    )
+    converter.experimental_new_converter = True
+    # converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
+                                           tf.lite.OpsSet.SELECT_TF_OPS]
+    converter.convert()
+    # am.convert_to_pb('./test_model')

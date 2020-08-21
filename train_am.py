@@ -15,6 +15,7 @@ class AM_Trainer():
         self.am.load_model(training=True)
 
         self.dg = AM_DataLoader(config)
+        self.dg.speech_config['reduction_factor'] = self.am.model.time_reduction_factor
         if self.am.config['decoder_config']['model_type']=='CTC':
             self.runner = ctc_runners.CTCTrainer(self.dg.speech_featurizer,self.dg.text_featurizer,self.config['running_config'])
         elif self.am.config['decoder_config']['model_type']=='LAS':

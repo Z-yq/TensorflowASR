@@ -14,14 +14,14 @@ CTC\Transducer\LAS Default is Chinese ASR
 
 ## What's New?
 
--   ALL structure support batch decode
--   Modify Transducer train\predict way `for More controllable and speed up,110ms in ~4.1S wav`
+-   Add ESPnet(some modify) Model
+-   Add Tester
+-   Fix bugs
 
 
 ## Future
 -  To support tflite
 -  Fix bugs
--  Add Tester
 
 ## Supported Structure
 -  **CTC**
@@ -31,6 +31,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 ## Supported Models
 
 -   **Conformer** 
+-   **ESPNet**:`Efficient Spatial Pyramid of Dilated Convolutions`
 -   **DeepSpeech2**
 -   **Transformer**` Pinyin to Chinese characters` 
        -  O2O-Encoder-Decoder `Complete transformer,and one to one relationship between phoneme and target
@@ -77,7 +78,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 4. Just run:
   
      ```shell
-    python train_am.py --data_config ./configs/am_data --model_config ./configs/conformer.yml
+    python train_am.py --data_config ./configs/am_data.yml --model_config ./configs/conformer.yml
     ```
   
 5. To Test,you can follow in **_`run-test.py`_**,addition,you can modify the **_`predict`_** function to meet your needs:
@@ -99,7 +100,14 @@ CTC\Transducer\LAS Default is Chinese ASR
     
     lm_result=lm.predict(am_result)
     ```
+Use **Tester** to test your model:
+Fisrt modify the `eval_list`  in _`am_data.yml/lm_data.yml`_
 
+Then:
+```shell
+python eval_am.py --data_config ./configs/am_data.yml --model_config ./configs/conformer.yml
+```
+Tester will show **SER/CER/DEL/INS/SUB** 
 
 ## Your Model
 
@@ -187,7 +195,7 @@ def init_text_to_vocab(self):#keep the name
     self.text_to_vocab = text_to_vocab_func #here self.text_to_vocab is a function,not a call
 ```
 
-Don't forget the token list start with **_`S`_** and **_`/S`_**,e.g:
+Don't forget that the token list start with **_`S`_** and **_`/S`_**,e.g:
 
         S
         /S

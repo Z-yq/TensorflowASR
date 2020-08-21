@@ -142,7 +142,7 @@ class LMTrainer(BaseTrainer):
 
         self._train_batches(train_dataset)
         if eval_dataset is not None:
-
-            self._eval_batches(eval_dataset)
+            self._check_eval_interval(eval_dataset)
+            # self._eval_batches(eval_dataset)
 
 
