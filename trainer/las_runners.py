@@ -1,5 +1,5 @@
 
-import numpy as np
+import logging
 import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
 
@@ -18,12 +18,13 @@ class LASTrainer(BaseTrainer):
                  text_featurizer: TextFeaturizer,
                  config: dict,
                  is_mixed_precision: bool = False,
+                 strategy=None
                  ):
         super(LASTrainer, self).__init__(config=config,)
         self.speech_featurizer = speech_featurizer
         self.text_featurizer = text_featurizer
         self.is_mixed_precision = is_mixed_precision
-        self.global_batch_size=config['batch_size']
+        self.set_strategy(strategy)
     def set_train_metrics(self):
         lists=['classes_loss','stop_loss']
         if self.config['guide_attention']:
@@ -64,7 +65,8 @@ class LASTrainer(BaseTrainer):
                 train_loss=classes_loss+stop_loss+alig_loss
             else:
                 train_loss = classes_loss + stop_loss
-
+            train_loss = tf.nn.compute_average_loss(train_loss,
+                                                    global_batch_size=self.global_batch_size)
             if self.is_mixed_precision:
                 scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)
 
@@ -80,25 +82,7 @@ class LASTrainer(BaseTrainer):
         if self.config['guide_attention']:
             self.train_metrics["alig_guide_loss"].update_state(alig_loss)
 
-    def GuidedAttention(self,N, T, g=0.2):
-        W = np.zeros((N, T), dtype=np.float32)
-        for n in range(N):
-            for t in range(T):
-                W[n, t] = 1 - np.exp(-(t / float(T) - n / float(N)) ** 2 / (2 * g * g))
-        return W
-    def guided_attention(self,input_length, targets_length, inputs_shape, mel_target_shape):
-        att_targets = []
-        for i, j in zip(input_length, targets_length):
-            i=int(i)
-            step = int(j)
-            pad = np.ones([inputs_shape, mel_target_shape])*-1.
-            pad[i:, :step] = 1
-            att_target = self.GuidedAttention(i, step, 0.2)
-            pad[:att_target.shape[0], :att_target.shape[1]] = att_target
-            att_targets.append(pad)
-        att_targets = np.array(att_targets)
 
-        return att_targets.astype('float32')
 
 
     @tf.function(experimental_relax_shapes=True)
@@ -128,14 +112,14 @@ class LASTrainer(BaseTrainer):
     def stop_loss(self,labels,y_pred):
         y_true=tf.cast(tf.not_equal(labels,0),1.)
         loss=tf.keras.losses.binary_crossentropy(y_true,y_pred,True)
-        return tf.reduce_sum(loss)
+        return loss
 
     def mask_loss(self,y_true,y_pred):
         mask=tf.cast(tf.not_equal(y_true,0),1.)
         loss=tf.keras.losses.sparse_categorical_crossentropy(y_true,y_pred,True)
         mask_loss=loss*mask
-        total_loss=tf.reduce_sum(tf.reduce_sum(mask_loss,-1)/(tf.reduce_sum(mask,-1)+1e-6))
-        return total_loss
+        total_loss=tf.reduce_mean(tf.reduce_sum(mask_loss,-1)/(tf.reduce_sum(mask,-1)+1e-6),-1)
+        return tf.reduce_sum(total_loss)
     def alig_loss(self,guide_matrix,y_pred):
         attention_masks = tf.cast(tf.math.not_equal(guide_matrix, -1.0), tf.float32)
         loss_att = tf.reduce_sum(
@@ -146,35 +130,31 @@ class LASTrainer(BaseTrainer):
     def compile(self, model: tf.keras.Model,
                 optimizer: any,
                 max_to_keep: int = 10):
+        f,c=self.speech_featurizer.compute_feature_dim()
+        with self.strategy.scope():
+            self.model = model
 
-        self.model = model
+            self.model._build([1, 80, f, c],training=True)
+            try:
+                self.load_checkpoint()
+            except:
+                logging.info('trainer resume failed')
+            self.optimizer = tf.keras.optimizers.get(optimizer)
 
-        self.optimizer = tf.keras.optimizers.get(optimizer)
-
-        if self.is_mixed_precision:
-            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
+            if self.is_mixed_precision:
+                self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
 
         self.set_progbar()
         # self.load_checkpoint()
 
-    def fit(self, train_dataset, eval_dataset=None,epoch=None):
+    def fit(self, epoch=None):
         if epoch is not None:
             self.epochs=epoch
             self.train_progbar.set_description_str(
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
-        train_dataset_=[]
-        for batch in train_dataset:
-            features, wavs, input_length, labels, label_length = batch
-            guide_matrix=self.guided_attention(input_length,label_length,np.max(input_length),label_length.max())
-            train_dataset_.append((features, wavs, input_length, labels, label_length,guide_matrix))
-        self._train_batches(train_dataset_)
-        if eval_dataset is not None:
-            eval_dataset_ = []
-            for batch in eval_dataset:
-                features, wavs, input_length, labels, label_length = batch
-                guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
-                                                     label_length.max())
-                eval_dataset_.append((features, wavs, input_length, labels, label_length, guide_matrix))
-            self._eval_batches(eval_dataset_)
 
+
+        self._train_batches()
+
+        self._check_eval_interval()
 

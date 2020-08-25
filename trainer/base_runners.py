@@ -76,7 +76,12 @@ class BaseTrainer(BaseRunner):
         self.set_train_metrics()
         self.set_eval_metrics()
 
-
+    def set_strategy(self, strategy=None):
+        if not strategy:
+            self.strategy=tf.distribute.MirroredStrategy()
+        else:
+            self.strategy = strategy
+        self.global_batch_size = self.config["batch_size"] * self.strategy.num_replicas_in_sync
 
     def set_total_train_steps(self,value):
         # if self.train_steps_per_epoch is None:
@@ -126,28 +131,26 @@ class BaseTrainer(BaseRunner):
             files.sort(key=lambda x:int(x.split('_')[-1].replace('.h5','')))
             os.remove(os.path.join(self.checkpoint_dir,files[0]))
 
-    def load_checkpoint(self):
+    # -------------------------------- RUNNING -------------------------------------
+
+    def _finished(self,):
+
+        return self.steps >= (self.total_train_steps)
+
+    def load_checkpoint(self,):
         """Load checkpoint."""
 
         self.checkpoint_dir = os.path.join(self.config["outdir"], "checkpoints")
         files = os.listdir(self.checkpoint_dir)
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
-        self.model.load_weights(os.path.join(self.checkpoint_dir,files[-1]))
-
-    # -------------------------------- RUNNING -------------------------------------
-
-    def _finished(self,):
-
-        return self.steps >= (self.total_train_steps)-1
-
-
-    def _train_batches(self,train_data):
+        self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
+        self.steps= int(files[-1].split('_')[-1].replace('.h5', ''))
+    def _train_batches(self):
         """Train model one epoch."""
 
-        for batch in train_data:
+        for batch in self.train_datasets.take(self.train_steps_per_epoch):
             try:
-
-                self._train_step(batch)
+                self.strategy.run(self._train_step,args=(batch,))
                 self.steps+=1
                 self.train_progbar.update(1)
                 self._print_train_metrics(self.train_progbar)
@@ -157,22 +160,25 @@ class BaseTrainer(BaseRunner):
             except tf.errors.OutOfRangeError:
                 continue
 
-
+    def set_datasets(self,train,eval):
+        self.train_datasets=train
+        self.eval_datasets=eval
 
 
     def _train_step(self, batch):
         """ One step training. Does not return anything"""
         raise NotImplementedError()
 
-    def _eval_batches(self,eval_data):
+    def _eval_batches(self):
         """One epoch evaluation."""
 
         for metric in self.eval_metrics.keys():
             self.eval_metrics[metric].reset_states()
 
-        for batch in eval_data:
+        for batch in self.eval_datasets.take(self.eval_steps_per_epoch):
             try:
-                self._eval_step(batch)
+                self.strategy.run(self._eval_step,args=(batch,))
+
             except tf.errors.OutOfRangeError:
 
                 pass
@@ -213,10 +219,10 @@ class BaseTrainer(BaseRunner):
         if self.steps % self.config["save_interval_steps"] == 0:
             self.save_checkpoint()
 
-    def _check_eval_interval(self,eval_data):
+    def _check_eval_interval(self):
         """Save log interval."""
         if self.steps % self.config["eval_interval_steps"] == 0:
-            self._eval_batches(eval_data)
+            self._eval_batches()
 
     # -------------------------------- UTILS -------------------------------------
 

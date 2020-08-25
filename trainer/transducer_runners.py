@@ -4,16 +4,18 @@ import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
 
 from trainer.base_runners import BaseTrainer
-from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss,rnnt_ctc_loss
+from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss
 from AMmodel.transducer_wrap import Transducer
 from utils.text_featurizers import TextFeaturizer
-
+import logging
 
 class TransducerTrainer(BaseTrainer):
     def __init__(self,
-                 config: dict,
+                 speech_featurizer,
                  text_featurizer: TextFeaturizer,
+                 config: dict,
                  is_mixed_precision: bool = False,
+                 strategy=None
                 ):
         """
         Args:
@@ -22,11 +24,12 @@ class TransducerTrainer(BaseTrainer):
             is_mixed_precision: a boolean for using mixed precision or not
         """
         super(TransducerTrainer, self).__init__(config)
+        self.speech_featurizer=speech_featurizer
         self.text_featurizer = text_featurizer
         self.is_mixed_precision = is_mixed_precision
-        self.global_batch_size = config['batch_size']
+        self.set_strategy(strategy)
         if USE_TF:
-            self.rnnt_loss=rnnt_ctc_loss
+            self.rnnt_loss=tf_rnnt_loss
         else:
             self.rnnt_loss=rnnt_loss
     def set_train_metrics(self):
@@ -52,12 +55,13 @@ class TransducerTrainer(BaseTrainer):
             # print(logits.shape,target.shape)
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
-                                              , label_length=label_length, logit_length=input_length,blank=self.text_featurizer.blank)
+                                              , label_length=label_length, logit_length=input_length)
             else:
                 per_train_loss = self.rnnt_loss(
                 logits=logits, labels=labels, label_length=label_length,
                 logit_length=(input_length // self.model.time_reduction_factor),
                 blank=self.text_featurizer.blank)
+
             train_loss = tf.nn.compute_average_loss(per_train_loss,
                                                     global_batch_size=self.global_batch_size)
 
@@ -98,20 +102,24 @@ class TransducerTrainer(BaseTrainer):
                 model: Transducer,
                 optimizer: any,
                 max_to_keep: int = 10):
-
-        self.model = model
-        self.model.summary(line_length=100)
-        self.optimizer = tf.keras.optimizers.get(optimizer)
-        if self.is_mixed_precision:
-            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
+        f, c = self.speech_featurizer.compute_feature_dim()
+        with self.strategy.scope():
+            self.model = model
+            self.model._build([1,80,f,c])
+            self.model.summary(line_length=100)
+            try:
+                self.load_checkpoint()
+            except:
+                logging.info('trainer resume failed')
+            self.optimizer = tf.keras.optimizers.get(optimizer)
+            if self.is_mixed_precision:
+                self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
         self.set_progbar()
         # self.load_checkpoint()
-    def fit(self, train_dataset, eval_dataset=None,epoch=None):
+    def fit(self, epoch=None):
         if epoch is not None:
             self.epochs=epoch
             self.train_progbar.set_description_str(
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
-        self._train_batches(train_dataset)
-
-        if eval_dataset is not None:
-            self._check_eval_interval(eval_dataset)
+        self._train_batches()
+        self._check_eval_interval()

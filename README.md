@@ -14,13 +14,13 @@ CTC\Transducer\LAS Default is Chinese ASR
 
 ## What's New?
 
--   Add ESPnet(some modify) Model
--   Add Tester
+-   Support MultiGPU `all GPU is default, can use CUDA_VISIBLE_DEVICES=0,1,2 to choose device`
+-   Use tf.data.Dataset
 -   Fix bugs
 
 
 ## Future
--  To support tflite
+-  pre-train model
 -  Fix bugs
 
 ## Supported Structure

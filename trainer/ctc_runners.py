@@ -1,14 +1,13 @@
 
 
-import os
-import numpy as np
+import logging
 import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
 
-from utils.speech_featurizers import SpeechFeaturizer,read_raw_audio
+from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
 from trainer.base_runners import BaseTrainer
-from utils.tools import bytes_to_string
+
 
 
 class CTCTrainer(BaseTrainer):
@@ -19,12 +18,13 @@ class CTCTrainer(BaseTrainer):
                  text_featurizer: TextFeaturizer,
                  config: dict,
                  is_mixed_precision: bool = False,
+                 strategy=None
                  ):
         super(CTCTrainer, self).__init__(config=config,)
         self.speech_featurizer = speech_featurizer
         self.text_featurizer = text_featurizer
         self.is_mixed_precision = is_mixed_precision
-        self.global_batch_size=config['batch_size']
+        self.set_strategy(strategy)
     def set_train_metrics(self):
         self.train_metrics = {
             "ctc_loss": tf.keras.metrics.Mean("train_ctc_loss", dtype=tf.float32)
@@ -50,7 +50,8 @@ class CTCTrainer(BaseTrainer):
         logits_time_major=False,
         blank_index=self.text_featurizer.blank
     )
-
+            train_loss = tf.nn.compute_average_loss(train_loss,
+                                                    global_batch_size=self.global_batch_size)
 
             if self.is_mixed_precision:
                 scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)
@@ -85,23 +86,29 @@ class CTCTrainer(BaseTrainer):
     def compile(self, model: tf.keras.Model,
                 optimizer: any,
                 max_to_keep: int = 10):
-
-        self.model = model
-        self.model.summary(line_length=100)
-        self.optimizer = tf.keras.optimizers.get(optimizer)
-        if self.is_mixed_precision:
-            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
+        f,c=self.speech_featurizer.compute_feature_dim()
+        with self.strategy.scope():
+            self.model = model
+            self.model._build([1,80,f,c])
+            try:
+                self.load_checkpoint()
+            except:
+                logging.info('trainer resume failed')
+            self.model.summary(line_length=100)
+            self.optimizer = tf.keras.optimizers.get(optimizer)
+            if self.is_mixed_precision:
+                self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
         self.set_progbar()
         # self.load_checkpoint()
 
-    def fit(self, train_dataset, eval_dataset=None,epoch=None):
+    def fit(self, epoch=None):
         if epoch is not None:
             self.epochs=epoch
             self.train_progbar.set_description_str(
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
-        self._train_batches(train_dataset)
-        if eval_dataset is not None:
-            self._check_eval_interval(eval_dataset)
-            # self._eval_batches(eval_dataset)
+        self._train_batches()
+
+        self._check_eval_interval()
+
 
 

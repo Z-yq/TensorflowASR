@@ -4,7 +4,7 @@ import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
 import random
-
+import tensorflow as tf
 class LM_DataLoader():
     def __init__(self, config,training=True):
         self.train = training
@@ -14,10 +14,23 @@ class LM_DataLoader():
         self.word_featurizer = TextFeaturizer(config['lm_word'])
         self.init_text_to_vocab()
         self.batch = config['running_config']['batch_size']
-
+        self.epochs=0
     def init_bert(self, config, checkpoint):
         model = load_trained_model_from_checkpoint(config, checkpoint, trainable=False, seq_len=None)
         return model
+
+    def return_data_types(self):
+
+
+        return  (tf.int32, tf.int32, tf.float32)
+    def return_data_shape(self):
+
+
+        return (
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, None,768])
+            )
     def get_per_epoch_steps(self):
         return len(self.train_texts)//self.batch
 
@@ -170,7 +183,10 @@ class LM_DataLoader():
         x = np.array(x,'int32')
         y = np.array(y,'int32')
         return x, y
-
+    def generator(self,train=True):
+        while 1:
+            x, y, features=self.generate(train)
+            yield x,y,features
 if __name__ == '__main__':
     from utils.user_config import UserConfig
 

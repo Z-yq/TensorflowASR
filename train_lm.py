@@ -33,16 +33,26 @@ class LM_Trainer():
         return batches
     def train(self):
         while 1:
-            train_batches=self.make_train_batch_data()
-            eval_batches=self.make_eval_batch_data()
-        # self.runner.set_train_data_loader(batches)
-            self.runner.fit(train_batches,eval_batches,epoch=self.dg.epochs)
+            train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                            self.dg.return_data_types(),
+                                                            self.dg.return_data_shape(),
+                                                            args=(True,))
+            eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                           self.dg.return_data_types(),
+                                                           self.dg.return_data_shape(),
+                                                           args=(False,))
+            self.runner.set_datasets(train_datasets, eval_datasets)
 
+            self.runner.fit(epoch=self.dg.epochs)
+            if self.runner._finished():
+                self.runner.save_checkpoint()
+                logging.info('Finish training!')
+                break
 if __name__ == '__main__':
     import argparse
     parse = argparse.ArgumentParser()
-    parse.add_argument('--data_config', type=str, required=True, help='the am data config path')
-    parse.add_argument('--model_config', type=str, required=True, help='the am model config path')
+    parse.add_argument('--data_config', type=str, default='./configs/lm_data.yml', help='the am data config path')
+    parse.add_argument('--model_config', type=str, default='./configs/transformer.yml', help='the am model config path')
     args = parse.parse_args()
 
     config = UserConfig(args.data_config,args.model_config)

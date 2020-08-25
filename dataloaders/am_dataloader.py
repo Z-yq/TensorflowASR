@@ -4,7 +4,7 @@ import pypinyin
 import numpy as np
 from augmentations.augments import Augmentation
 import random
-
+import tensorflow as tf
 
 class AM_DataLoader():
 
@@ -22,8 +22,32 @@ class AM_DataLoader():
         self.augment = Augmentation(self.augment_config)
         self.init_text_to_vocab()
         self.epochs = 1
-
+        self.LAS=False
         self.steps = 0
+    def return_data_types(self):
+        if self.LAS:
+            return (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32,tf.float32)
+        else:
+            return  (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32)
+    def return_data_shape(self):
+        f,c=self.speech_featurizer.compute_feature_dim()
+        if self.LAS:
+            return (
+                tf.TensorShape([None,None,f,c]),
+                tf.TensorShape([None,None,1]),
+                tf.TensorShape([None,]),
+                tf.TensorShape([None,None]),
+                tf.TensorShape([None,]),
+                tf.TensorShape([None,None,None])
+            )
+        else:
+            return (
+                tf.TensorShape([None, None, f, c]),
+                tf.TensorShape([None, None, 1]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ])
+            )
     def get_per_epoch_steps(self):
         return len(self.train_list)//self.batch
     def eval_per_epoch_steps(self):
@@ -177,11 +201,33 @@ class AM_DataLoader():
         wavs = np.array(np.expand_dims(wavs, -1), 'float32')
 
         return x, wavs, input_length, y1, label_length1
-    def generator(self, train=True):
+
+    def GuidedAttention(self, N, T, g=0.2):
+        W = np.zeros((N, T), dtype=np.float32)
+        for n in range(N):
+            for t in range(T):
+                W[n, t] = 1 - np.exp(-(t / float(T) - n / float(N)) ** 2 / (2 * g * g))
+        return W
+
+    def guided_attention(self, input_length, targets_length, inputs_shape, mel_target_shape):
+        att_targets = []
+        for i, j in zip(input_length, targets_length):
+            i = int(i)
+            step = int(j)
+            pad = np.ones([inputs_shape, mel_target_shape]) * -1.
+            pad[i:, :step] = 1
+            att_target = self.GuidedAttention(i, step, 0.2)
+            pad[:att_target.shape[0], :att_target.shape[1]] = att_target
+            att_targets.append(pad)
+        att_targets = np.array(att_targets)
+
+        return att_targets.astype('float32')
+    def generate(self, train=True):
 
         if train:
-            indexs = np.argsort(self.pick_index)[:2 * self.batch]
-            indexs = random.sample(indexs.tolist(), self.batch)
+            batch=self.batch if self.augment.available() else self.batch*2
+            indexs = np.argsort(self.pick_index)[:batch]
+            indexs = random.sample(indexs.tolist(), batch//2)
             sample = [self.train_list[i] for i in indexs]
             for i in indexs:
                 self.pick_index[int(i)] += 1
@@ -231,6 +277,39 @@ class AM_DataLoader():
             input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
             y1.append(np.array(text_feature))
             label_length1.append(len(text_feature))
+        if train and self.augment.available():
+            for i in sample:
+                wp, txt = i.strip().split('\t')
+                try:
+                    data = self.speech_featurizer.load_wav(wp)
+                except:
+                    print('load data failed')
+                    continue
+                if len(data) < 400:
+                    continue
+                elif len(data) > self.speech_featurizer.sample_rate * 7:
+                    continue
+
+                if not self.only_chinese(txt):
+                    continue
+                data=self.augment.process(data)
+                speech_feature = self.speech_featurizer.extract(data)
+                max_input = max(max_input, speech_feature.shape[0])
+
+                py3 = self.text_to_vocab(txt)
+                if len(py3) == 0:
+                    continue
+
+                text_feature = self.text_featurizer.extract(py3)
+                max_label1 = max(max_label1, len(text_feature))
+                max_wav = max(max_wav, len(data))
+                if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(text_feature):
+                    continue
+                mels.append(speech_feature)
+                wavs.append(data)
+                input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
+                y1.append(np.array(text_feature))
+                label_length1.append(len(text_feature))
 
         for i in range(len(mels)):
             if mels[i].shape[0] < max_input:
@@ -252,13 +331,23 @@ class AM_DataLoader():
         wavs = np.array(np.expand_dims(wavs, -1), 'float32')
 
         return x, wavs, input_length, y1, label_length1
-
+    def generator(self,train=True):
+        while 1:
+            x, wavs, input_length, labels, label_length=self.generate(train)
+            if self.LAS:
+                guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
+                                                     label_length.max())
+                yield x, wavs, input_length, labels, label_length,guide_matrix
+            else:
+                yield x, wavs, input_length, labels, label_length
 
 if __name__ == '__main__':
     from utils.user_config import UserConfig
-
-    config = UserConfig(r'D:\TF2-ASR\config.yml')
-
+    import tensorflow as tf
+    config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\conformer.yml')
+    config['decoder_config']['model_type']='Transducer'
     dg = AM_DataLoader(config)
-    x, wavs, input_length, y1, label_length1 = dg.generator()
-    print(x.shape, wavs.shape, input_length.shape, y1.shape, label_length1.shape)
+    datasets=tf.data.Dataset.from_generator(dg.generator,(tf.float32,tf.float32,tf.int32,tf.int32,tf.int32))
+
+    # x, wavs, input_length, y1, label_length1 = dg.generator()
+    # print(x.shape, wavs.shape, input_length.shape, y1.shape, label_length1.shape)

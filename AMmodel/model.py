@@ -84,16 +84,18 @@ class AM():
         self.model.add_featurizers(self.text_feature)
         f,c=self.speech_feature.compute_feature_dim()
 
-        if self.text_config['model_type'] != 'LAS':
-            self.model._build([3,80,f,c])
-            self.model._build([2, 80, f, c])
-            self.model._build([1, 80, f, c])
-        else:
-            self.model._build([3, 80, f, c], training)
-            self.model._build([1, 80, f, c], training)
-            self.model._build([2, 80, f, c], training)
+
         try:
-            self.load_checkpoint(self.config)
+            if not training:
+                if self.text_config['model_type'] != 'LAS':
+                    self.model._build([3, 80, f, c])
+                    self.model._build([2, 80, f, c])
+                    self.model._build([1, 80, f, c])
+                else:
+                    self.model._build([3, 80, f, c], training)
+                    self.model._build([1, 80, f, c], training)
+                    self.model._build([2, 80, f, c], training)
+                self.load_checkpoint(self.config)
 
         except:
             print('am loading model failed.')

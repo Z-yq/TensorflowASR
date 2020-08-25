@@ -51,7 +51,7 @@ class AMTester(BaseTester):
             self.cer_s+=ws
             self.cer_d+=wd
             self.cer_i+=wi
-            self.eval_metrics["greed_ser"].update_state(1 if i == j else 0)
+            self.eval_metrics["greed_ser"].update_state(0 if i == j else 1)
             self.eval_metrics["greed_cer"].update_state(score)
 
     def compile(self, model: tf.keras.Model):

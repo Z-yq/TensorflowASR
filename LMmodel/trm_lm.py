@@ -12,11 +12,13 @@ class LM():
         self.model_config=self.config['model_config']
         self.model_config.update({'input_vocab_size':self.vocab_featurizer.num_classes,'target_vocab_size':self.word_featurizer.num_classes})
 
-    def load_model(self):
+    def load_model(self,training=True):
         self.model = Transformer(**self.model_config)
-        self.model._build()
+
         try:
-            self.load_checkpoint()
+            if not training:
+                self.model._build()
+                self.load_checkpoint()
         except:
             logging.info('lm loading model failed.')
         self.model.start_id=self.word_featurizer.start

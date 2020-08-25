@@ -10,7 +10,7 @@ class LM_Tester():
         self.config = config
         self.dg = LM_DataLoader(config,training=False)
         lm = LM(config)
-        lm.load_model()
+        lm.load_model(training=False)
         self.model = lm.model
 
         self.runner = lm_tester.LMTester(self.config['running_config'],self.config['model_config']['one2one'])

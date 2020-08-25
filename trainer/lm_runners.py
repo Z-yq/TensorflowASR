@@ -1,9 +1,9 @@
 import tensorflow as tf
 import tensorflow.keras.mixed_precision.experimental as mixed_precision
-from LMmodel.tf2_trm import create_masks
+
 from trainer.base_runners import BaseTrainer
-
-
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 class LMTrainer(BaseTrainer):
     """ Trainer for CTC Models """
@@ -13,12 +13,13 @@ class LMTrainer(BaseTrainer):
                  config: dict,
                  is_mixed_precision: bool = False,
                  one2one:bool =False,
+                 strategy=None
                  ):
         super(LMTrainer, self).__init__(config=config,)
 
         self.is_mixed_precision = is_mixed_precision
-        self.global_batch_size=config['batch_size']
         self.one2one=one2one
+        self.set_strategy(strategy)
     def set_train_metrics(self):
         lists=['lm_loss','feature_map_loss','lm_acc']
 
@@ -57,7 +58,8 @@ class LMTrainer(BaseTrainer):
 
             if self.is_mixed_precision:
                 scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)
-
+            train_loss = tf.nn.compute_average_loss(train_loss,
+                                                    global_batch_size=self.global_batch_size)
         if self.is_mixed_precision:
             scaled_gradients = tape.gradient(scaled_train_loss, self.model.trainable_variables)
             gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
@@ -99,7 +101,7 @@ class LMTrainer(BaseTrainer):
         mask = tf.cast(tf.not_equal(real, -10.), 1.)
         loss = tf.square(real - pred)
         loss *= mask
-        return tf.reduce_sum(tf.reduce_sum(loss,-1) / (tf.reduce_sum(mask,-1) + 1e-6))
+        return tf.reduce_mean(tf.reduce_sum(loss,-1) / (tf.reduce_sum(mask,-1) + 1e-6),-1,True)
 
     def classes_loss(self, real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
@@ -107,9 +109,9 @@ class LMTrainer(BaseTrainer):
 
         mask = tf.cast(mask, dtype=loss.dtype)
         loss *= mask
-        final=tf.reduce_sum(loss,-1)/tf.reduce_sum(mask,-1)
+        final=tf.reduce_sum(loss,-1,True)/tf.reduce_sum(mask,-1,True)
 
-        return tf.reduce_sum(final)
+        return final
     def classes_acc(self, real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         accs = tf.keras.metrics.sparse_categorical_accuracy(real,pred)
@@ -122,27 +124,30 @@ class LMTrainer(BaseTrainer):
     def compile(self, model: tf.keras.Model,
                 optimizer: any,
                 max_to_keep: int = 10):
+        with self.strategy.scope():
+            self.model = model
 
-        self.model = model
-
-        self.optimizer = tf.keras.optimizers.get(optimizer)
-
-        if self.is_mixed_precision:
-            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
+            self.optimizer = tf.keras.optimizers.get(optimizer)
+            try:
+                self.load_checkpoint()
+            except:
+                logging.info('lm trainer resume failed')
+            if self.is_mixed_precision:
+                self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
 
         self.set_progbar()
         # self.load_checkpoint()
 
-    def fit(self, train_dataset, eval_dataset=None,epoch=None):
+    def fit(self, epoch=None):
         if epoch is not None:
             self.epochs=epoch
             self.train_progbar.set_description_str(
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
 
 
-        self._train_batches(train_dataset)
-        if eval_dataset is not None:
-            self._check_eval_interval(eval_dataset)
+        self._train_batches()
+
+        self._check_eval_interval()
             # self._eval_batches(eval_dataset)
 
 

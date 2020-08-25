@@ -3,10 +3,15 @@
 import os
 import collections
 import tensorflow as tf
-
-from utils.tools import shape_list, get_shape_invariants
+import collections
+from utils.tools import shape_list, get_shape_invariants,merge_repeated
 from utils.text_featurizers import TextFeaturizer
 
+
+Hypotheses = collections.namedtuple(
+    "Hypotheses",
+    ("scores", "yseqs", "p_memory_states")
+)
 
 
 class TransducerPrediction(tf.keras.Model):
@@ -188,55 +193,79 @@ class Transducer(tf.keras.Model):
 
         ])
         def recognize_pb(features, length, training=False):
-            enc = self.encoder(features, training=training)
-            batch = tf.shape(enc)[0]
-
-            decoded = tf.zeros([batch, 1], tf.int32)
-            stop_flag = tf.zeros([batch, ], tf.float32)
-            b_i = 0
-            B = self.max_iter
-
-            def _cond(b_i, B, stop_flag, decoded):
-                return tf.less(b_i, B)
-
-            def _body(b_i, B, stop_flag, decoded):
-                pred, _ = self.predict_net(decoded, training=training)
-                outputs = self.joint_net([enc, pred], training=training)
-                outputs = tf.reduce_sum(outputs, 2)
-                outputs = tf.nn.softmax(outputs, -1)
-                length_ = tf.squeeze(length, -1)
-                ctc_out = tf.keras.backend.ctc_decode(outputs, length_)[0][0]
-                step_flag = tf.cast(tf.reduce_any(tf.equal(ctc_out, self.endid), -1), 1)
-                stop_flag += step_flag
-                ctc_out = tf.cast(tf.clip_by_value(ctc_out, 0, self.text_featurizer.blank), tf.int32)
-                ctc_out_value = tf.where(ctc_out == 0, 1, 0) * self.text_featurizer.blank
-                ctc_out += tf.cast(ctc_out_value, tf.int32)
-
-                hyps = tf.cond(
-                    tf.reduce_all(tf.cast(stop_flag, tf.bool)),
-                    true_fn=lambda: B,
-                    false_fn=lambda: b_i + 1,
-                )
-                decoded = tf.pad(ctc_out, [[0, 0], [1, 0]])
-                return hyps, B, stop_flag, decoded
-
-            _, _, stop_flag, decoded = tf.while_loop(
-                _cond,
-                _body,
-                loop_vars=(b_i, B, stop_flag, decoded),
-                shape_invariants=(
-                    tf.TensorShape([1]),
-                    tf.TensorShape([1]),
-                    tf.TensorShape([None, ]),
-                    tf.TensorShape([None, None]),
-
-                )
-            )
+            decoded=self.perform_greedy(features)
             return [decoded]
 
         self.recognize_pb= recognize_pb
 
+    @tf.function(experimental_relax_shapes=True)
+    def perform_greedy(self,
+                       features):
+        batch = tf.shape(features)[0]
+        new_hyps = Hypotheses(
+            tf.zeros([batch],tf.float32),
+            self.text_featurizer.start * tf.ones([batch, 1], dtype=tf.int32),
+            self.predict_net.get_initial_state(features)
+        )
 
+        enc = self.encoder(features, training=False)  # [B, T, E]
+        # enc = tf.squeeze(enc, axis=0)  # [T, E]
+        stop_flag = tf.zeros([batch,1 ], tf.float32)
+        T = tf.cast(shape_list(enc)[1], dtype=tf.int32)
+
+        i = tf.constant(0, dtype=tf.int32)
+
+        def _cond(enc, i, new_hyps, T, stop_flag):
+            return tf.less(i, T)
+
+        def _body(enc, i, new_hyps, T, stop_flag):
+            hi = enc[:, i:i + 1]  # [B, 1, E]
+            y, n_memory_states = self.predict_net(
+                inputs=new_hyps[1][:,-1:],  # [1, 1]
+                p_memory_states=new_hyps[2],
+                training=False
+            )  # [1, 1, P], [1, P], [1, P]
+            # [1, 1, E] + [1, 1, P] => [1, 1, 1, V]
+            ytu = tf.nn.log_softmax(self.joint_net([hi, y], training=False))
+            ytu = tf.squeeze(ytu, axis=None)  # [B, 1, 1, V] => [B,V]
+            n_predict = tf.expand_dims(tf.argmax(ytu, axis=-1, output_type=tf.int32),-1)  # => argmax []
+
+            # print(stop_flag.shape,n_predict.shape)
+            new_hyps =Hypotheses(new_hyps[0]+1,
+            tf.concat([new_hyps[1], tf.reshape(n_predict,[-1,1])], -1),
+             n_memory_states)
+
+            stop_flag += tf.cast(tf.equal(tf.reshape(n_predict, [-1,1]), self.text_featurizer.stop), tf.float32)
+            n_i = tf.cond(
+                tf.reduce_all(tf.cast(stop_flag, tf.bool)),
+                true_fn=lambda: T,
+                false_fn=lambda: i + 1,
+            )
+
+            return enc, n_i, new_hyps, T,stop_flag
+
+        _, _, new_hyps, _, stop_flag = tf.while_loop(
+            _cond,
+            _body,
+            loop_vars=(enc, i, new_hyps, T, stop_flag),
+            shape_invariants=(
+                tf.TensorShape([None, None,None]),
+                tf.TensorShape([]),
+                Hypotheses(
+                    tf.TensorShape([None]),
+                    tf.TensorShape([None, None]),
+                    tf.nest.map_structure(get_shape_invariants, new_hyps[-1])
+                ),
+                tf.TensorShape([]),
+                tf.TensorShape([None,1 ]),
+            )
+        )
+
+        return new_hyps[1]
+    def recognize(self, features):
+        decoded=self.perform_greedy(features)
+
+        return decoded
 
     def get_config(self):
         conf = self.encoder.get_config()

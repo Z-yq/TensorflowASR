@@ -552,7 +552,7 @@ class LAS(tf.keras.Model):
         )
         self.config = config
         self.use_window_mask = False
-        self.maximum_iterations = 10
+        self.maximum_iterations = 1000 if training else 50
         self.enable_tflite_convertible = enable_tflite_convertible
 
     def setup_window(self, win_front, win_back):
@@ -594,7 +594,7 @@ class LAS(tf.keras.Model):
         """
 
         self.text_featurizer = text_featurizer
-    @tf.function(experimental_relax_shapes=True)
+    # @tf.function(experimental_relax_shapes=True)
     def call(
             self,
             inputs, input_lengths,
