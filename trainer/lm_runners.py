@@ -121,6 +121,45 @@ class LMTrainer(BaseTrainer):
         final=tf.reduce_sum(accs,-1)/tf.reduce_sum(mask,-1)
 
         return tf.reduce_mean(final)
+
+    def _eval_batches(self):
+        """One epoch evaluation."""
+
+        for metric in self.eval_metrics.keys():
+            self.eval_metrics[metric].reset_states()
+
+        for idx, batch in enumerate(self.eval_datasets):
+            try:
+                self.strategy.run(self._eval_step, args=(batch,))
+
+            except tf.errors.OutOfRangeError:
+
+                pass
+
+            # Update steps
+            self.eval_progbar.update(1)
+
+            # Print eval info to progress bar
+            self._print_eval_metrics(self.eval_progbar)
+            if idx >= self.eval_steps_per_epoch:
+                break
+        self._write_to_tensorboard(self.eval_metrics, self.steps, stage="eval")
+    def _train_batches(self):
+        """Train model one epoch."""
+
+        for idx,batch in enumerate(self.train_datasets):
+            try:
+                self.strategy.run(self._train_step,args=(batch,))
+                self.steps+=1
+                self.train_progbar.update(1)
+                self._print_train_metrics(self.train_progbar)
+                self._check_log_interval()
+                self._check_save_interval()
+
+            except tf.errors.OutOfRangeError:
+                continue
+            if idx>self.train_steps_per_epoch:
+                break
     def compile(self, model: tf.keras.Model,
                 optimizer: any,
                 max_to_keep: int = 10):

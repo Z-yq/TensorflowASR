@@ -1,0 +1,63 @@
+
+model_config:
+  name: MultiTaskConformerLAS
+  dmodel: 256
+  reduction_factor: 4
+  num_blocks: 6
+  head_size: 64
+  num_heads: 4
+  kernel_size: 32
+  fc_factor: 0.5
+  dropout: 0.1
+  LAS_decoder:
+    n_classes: None
+    embedding_hidden_size: 512
+    initializer_range: 0.02
+    layer_norm_eps: 1e-6
+    n_prenet_layers: 2
+    prenet_units: 256
+    prenet_activation: "mish"
+    prenet_dropout_rate: 0.5
+    n_lstm_decoder: 1
+    decoder_lstm_units: 256
+    attention_dim: 128
+    attention_filters: 32
+    attention_kernel: 31
+    head_size: 64
+    num_heads: 4
+    kernel_size: 32
+    fc_factor: 0.5
+    dropout: 0.1
+  enable_tflite_convertible: False # not support true
+
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
+
+decoder1_config:
+  vocabulary: '.\configs\dict\words.txt'
+  blank_at_zero: True
+  beam_width: 1
+decoder2_config:
+  vocabulary: '.\configs\dict\phone.txt'
+  blank_at_zero: True
+  beam_width: 1
+decoder3_config:
+  vocabulary: '.\configs\dict\pinyin.txt'
+  blank_at_zero: True
+  beam_width: 1
+decoder4_config:
+  vocabulary: '.\configs\dict\char.txt'
+  blank_at_zero: True
+  beam_width: 1
+  
+bert:
+  config_json: '.\LMmodel\bert\bert_config.json'
+  bert_ckpt: '.\LMmodel\bert\bert_model.ckpt'
+  bert_vocab: '.\LMmodel\bert\vocab.txt'
+
+map_path:
+  pinyin: '.\configs\dict\dict.pinyin'
+  phone: '.\configs\dict\pinyin2phone.map'

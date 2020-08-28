@@ -17,31 +17,11 @@ class LM_Trainer():
         self.runner = lm_runners.LMTrainer(self.config['running_config'],one2one=self.model.one2one)
         self.runner.set_total_train_steps(self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs'])
         self.runner.compile(self.model,self.optimizer)
-    def make_train_batch_data(self):
-        batches=[]
-        for _ in range(self.config['running_config']['train_steps_per_batches']):
-            x,y,feature=self.dg.generate()
-            batches.append(( x,y,feature))
 
-        return batches
-    def make_eval_batch_data(self):
-        batches = []
-        for _ in range(self.config['running_config']['eval_steps_per_batches']):
-            x, y, feature= self.dg.generate(train=False)
-            batches.append((x,y,feature))
-
-        return batches
     def train(self):
         while 1:
-            train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                            self.dg.return_data_types(),
-                                                            self.dg.return_data_shape(),
-                                                            args=(True,))
-            eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                           self.dg.return_data_types(),
-                                                           self.dg.return_data_shape(),
-                                                           args=(False,))
-            self.runner.set_datasets(train_datasets, eval_datasets)
+
+            self.runner.set_datasets(self.dg.generator(True), self.dg.generator(False))
 
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():

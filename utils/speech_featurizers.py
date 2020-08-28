@@ -54,23 +54,7 @@ def deemphasis(signal: np.ndarray, coeff=0.97):
 
 class SpeechFeaturizer:
     def __init__(self, speech_config: dict):
-        """
-        We should use TFSpeechFeaturizer for training to avoid differences
-        between tf and librosa when converting to tflite in post-training stage
-        speech_config = {
-            "sample_rate": int,
-            "frame_ms": int,
-            "stride_ms": int,
-            "num_feature_bins": int,
-            "feature_type": "spectrogram", "logfbank" or "mfcc",
-            "delta": bool,
-            "delta_delta": bool,
-            "pitch": bool,
-            "normalize_signal": bool,
-            "normalize_feature": bool,
-            "normalize_per_feature": bool
-        }
-        """
+
         # Samples
         self.sample_rate = speech_config["sample_rate"]
         self.frame_length = int(self.sample_rate * (speech_config["frame_ms"] / 1000))

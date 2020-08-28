@@ -569,7 +569,7 @@ class LAS(tf.keras.Model):
 
         batch=shape[0]
         inputs = np.random.normal(size=shape).astype(np.float32)
-        input_lengths = np.array([shape[-2]//4]*batch,'int32')
+        input_lengths = np.array([shape[1]//4]*batch,'int32')
         print(input_lengths.shape)
         if training:
             targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]*batch)

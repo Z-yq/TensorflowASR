@@ -347,7 +347,8 @@ if __name__ == '__main__':
     config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\conformer.yml')
     config['decoder_config']['model_type']='Transducer'
     dg = AM_DataLoader(config)
-    datasets=tf.data.Dataset.from_generator(dg.generator,(tf.float32,tf.float32,tf.int32,tf.int32,tf.int32))
+    # datasets=tf.data.Dataset.from_generator(dg.generator,(tf.float32,tf.float32,tf.int32,tf.int32,tf.int32))
 
-    # x, wavs, input_length, y1, label_length1 = dg.generator()
+    x, wavs, input_length, y1, label_length1 = dg.generate()
+    print(x.min())
     # print(x.shape, wavs.shape, input_length.shape, y1.shape, label_length1.shape)

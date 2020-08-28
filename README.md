@@ -14,8 +14,8 @@ CTC\Transducer\LAS Default is Chinese ASR
 
 ## What's New?
 
--   Support MultiGPU `all GPU is default, can use CUDA_VISIBLE_DEVICES=0,1,2 to choose device`
--   Use tf.data.Dataset
+-   MultiTask `multi task training Structure,now just for conformer`
+-   Fix tf.data.Dataset error
 -   Fix bugs
 
 
@@ -27,6 +27,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 -  **CTC**
 -  **Transducer**
 -  **LAS**
+-  **MultiTaskCTC**
 
 ## Supported Models
 

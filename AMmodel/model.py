@@ -10,9 +10,12 @@ class AM():
     def __init__(self,config):
         self.config = config
         self.update_model_type()
-        self.speech_config= config['speech_config']
-        self.text_config=config['decoder_config']
-        self.model_config=config['model_config']
+        self.speech_config= self.config['speech_config']
+        try:
+            self.text_config=self.config['decoder_config']
+        except:
+            self.text_config = self.config['decoder4_config']
+        self.model_config=self.config['model_config']
         self.text_feature=TextFeaturizer(self.text_config)
         self.speech_feature=SpeechFeaturizer(self.speech_config)
 
@@ -20,10 +23,20 @@ class AM():
     def update_model_type(self):
         if 'CTC' in self.config['model_config']['name']:
             self.config['decoder_config'].update({'model_type': 'CTC'})
+            self.model_type='CTC'
+        elif 'Multi' in self.config['model_config']['name']:
+            self.config['decoder1_config'].update({'model_type': 'LAS'})
+            self.config['decoder2_config'].update({'model_type': 'LAS'})
+            self.config['decoder3_config'].update({'model_type': 'LAS'})
+            self.config['decoder4_config'].update({'model_type': 'LAS'})
+            self.config['decoder_config'].update({'model_type': 'LAS'})
+            self.model_type = 'MultiTask'
         elif 'LAS' in self.config['model_config']['name']:
             self.config['decoder_config'].update({'model_type': 'LAS'})
+            self.model_type = 'LAS'
         else:
             self.config['decoder_config'].update({'model_type': 'Transducer'})
+            self.model_type = 'Transducer'
     def conformer_model(self,training):
         from AMmodel.conformer import ConformerTransducer, ConformerCTC, ConformerLAS
         self.model_config.update({'vocabulary_size': self.text_feature.num_classes})
@@ -52,13 +65,30 @@ class AM():
         elif self.model_config['name'] == 'DeepSpeech2CTC':
             self.model = DeepSpeech2CTC(input_shape,self.model_config,self.text_feature.num_classes)
         elif self.model_config['name'] == 'DeepSpeech2LAS':
-            self.config['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
-            self.config['LAS_decoder'].update({'startid': self.text_feature.start})
+            self.model_config['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
+            self.model_config['LAS_decoder'].update({'startid': self.text_feature.start})
             self.model = DeepSpeech2LAS(self.model_config,input_shape, training=training,
                                       enable_tflite_convertible=self.model_config[
                                           'enable_tflite_convertible'])
         else:
             raise ('not in supported model list')
+    def multi_task_model(self,training):
+        from AMmodel.MultiConformer import ConformerMultiTaskLAS
+        token1_feature = TextFeaturizer(self.config['decoder1_config'])
+        token2_feature = TextFeaturizer(self.config['decoder2_config'])
+        token3_feature = TextFeaturizer(self.config['decoder3_config'])
+        token4_feature = TextFeaturizer(self.config['decoder4_config'])
+
+        self.model_config.update({
+            'classes1':token1_feature.num_classes,
+            'classes2':token2_feature.num_classes,
+            'classes3':token3_feature.num_classes,
+        })
+        self.model_config['LAS_decoder'].update({'n_classes': token4_feature.num_classes})
+        self.model_config['LAS_decoder'].update({'startid': token4_feature.start})
+        self.model = ConformerMultiTaskLAS(self.model_config,  training=training,
+                                    enable_tflite_convertible=self.model_config[
+                                        'enable_tflite_convertible'])
     def espnet_model(self,training):
         from AMmodel.espnet import ESPNetCTC,ESPNetLAS,ESPNetTransducer
         self.config['Transducer_decoder'].update({'vocabulary_size': self.text_feature.num_classes})
@@ -75,10 +105,15 @@ class AM():
         else:
             raise ('not in supported model list')
     def load_model(self,training=True):
-        if 'Conformer' in self.model_config['name']:
-            self.conformer_model(training)
-        elif 'ESPNet' in self.model_config['name']:
+
+        if 'ESPNet' in self.model_config['name']:
             self.espnet_model(training)
+        elif 'Multi' in self.model_config['name']:
+            self.multi_task_model(training)
+
+
+        elif 'Conformer' in self.model_config['name']:
+            self.conformer_model(training)
         else:
             self.ds2_model(training)
         self.model.add_featurizers(self.text_feature)
@@ -91,10 +126,13 @@ class AM():
                     self.model._build([3, 80, f, c])
                     self.model._build([2, 80, f, c])
                     self.model._build([1, 80, f, c])
+                    self.model.return_pb_function(f,c)
+
                 else:
                     self.model._build([3, 80, f, c], training)
                     self.model._build([1, 80, f, c], training)
                     self.model._build([2, 80, f, c], training)
+                    self.model.return_pb_function(f, c)
                 self.load_checkpoint(self.config)
 
         except:
@@ -115,7 +153,7 @@ class AM():
             else:
                 break
         return de
-    def predict(self,fp,return_string_list=True):
+    def predict(self,fp):
         if '.pcm' in fp:
             data=np.fromfile(fp,'int16')
             data=np.array(data,'float32')
@@ -125,11 +163,8 @@ class AM():
 
         mel=self.speech_feature.extract(data)
         mel=np.expand_dims(mel,0)
-        result=self.model.recognize(mel)[0]
-
-        if return_string_list:
-            result=result.numpy().argmax(-1)
-            result=self.decode_result(result)
+        input_length=np.array([[mel.shape[1]//self.model.time_reduction_factor]],'int32')
+        result=self.model.recognize_pb(mel,input_length)[0]
         return result
 
     def load_checkpoint(self,config):
