@@ -148,12 +148,12 @@ class MultiTaskLASTrainer(BaseTrainer):
 
 
     def stop_loss(self,labels,y_pred):
-        y_true=tf.cast(tf.not_equal(labels,0),1.)
+        y_true = tf.cast(tf.equal(labels, self.text_featurizer.blank), 1.)
         loss=tf.keras.losses.binary_crossentropy(y_true,y_pred,True)
         return loss
 
     def mask_loss(self,y_true,y_pred):
-        mask=tf.cast(tf.not_equal(y_true,0),1.)
+        mask = tf.cast(tf.not_equal(y_true, self.text_featurizer.blank), 1.)
         loss=tf.keras.losses.sparse_categorical_crossentropy(y_true,y_pred,True)
         mask_loss=loss*mask
         total_loss=tf.reduce_mean(tf.reduce_sum(mask_loss,-1)/(tf.reduce_sum(mask,-1)+1e-6),-1)
