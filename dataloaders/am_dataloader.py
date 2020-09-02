@@ -4,8 +4,8 @@ import pypinyin
 import numpy as np
 from augmentations.augments import Augmentation
 import random
-import tensorflow as tf
 
+import os
 class AM_DataLoader():
 
     def __init__(self, config_dict,training=True):
@@ -24,6 +24,17 @@ class AM_DataLoader():
         self.epochs = 1
         self.LAS=False
         self.steps = 0
+    def load_state(self,outdir):
+        try:
+            self.pick_index=np.load(os.path.join(outdir,'dg_state.npy')).flatten().tolist()
+            self.epochs=1+int(np.mean(self.pick_index))
+        except FileNotFoundError:
+            print('not found state file')
+        except:
+            print('load state falied,use init state')
+    def save_state(self,outdir):
+        np.save(os.path.join(outdir,'dg_state.npy'),np.array(self.pick_index))
+
     def return_data_types(self):
         if self.LAS:
             return (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32,tf.float32)
@@ -231,7 +242,7 @@ class AM_DataLoader():
             sample = [self.train_list[i] for i in indexs]
             for i in indexs:
                 self.pick_index[int(i)] += 1
-            self.epochs = int(np.mean(self.pick_index))
+            self.epochs =1+ int(np.mean(self.pick_index))
         else:
             sample = random.sample(self.test_list, self.batch)
 
@@ -345,10 +356,11 @@ if __name__ == '__main__':
     from utils.user_config import UserConfig
     import tensorflow as tf
     config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\conformer.yml')
-    config['decoder_config']['model_type']='Transducer'
+    config['decoder_config']['model_type']='CTC'
     dg = AM_DataLoader(config)
     # datasets=tf.data.Dataset.from_generator(dg.generator,(tf.float32,tf.float32,tf.int32,tf.int32,tf.int32))
 
     x, wavs, input_length, y1, label_length1 = dg.generate()
     print(x.min())
+    dg.save_state('./')
     # print(x.shape, wavs.shape, input_length.shape, y1.shape, label_length1.shape)

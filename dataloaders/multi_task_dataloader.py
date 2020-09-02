@@ -3,21 +3,18 @@ from utils.text_featurizers import TextFeaturizer
 import numpy as np
 from augmentations.augments import Augmentation
 import random
-import tensorflow as tf
+import os
 from jieba.posseg import lcut
 from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
 class MultiTask_DataLoader():
 
     def __init__(self, config_dict,training=True):
         self.speech_config = config_dict['speech_config']
-
-
         self.text1_config = config_dict['decoder1_config']
         self.text2_config = config_dict['decoder2_config']
         self.text3_config = config_dict['decoder3_config']
         self.text4_config = config_dict['decoder4_config']
         self.augment_config = config_dict['augments_config']
-
         self.batch = config_dict['learning_config']['running_config']['batch_size']
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.token1_featurizer = TextFeaturizer(self.text1_config)
@@ -30,7 +27,19 @@ class MultiTask_DataLoader():
         self.epochs = 1
         self.LAS=True
         self.steps = 0
+
         self.init_bert(config_dict)
+
+    def load_state(self,outdir):
+        try:
+            self.pick_index=np.load(os.path.join(outdir,'dg_state.npy')).flatten().tolist()
+            self.epochs=1+int(np.mean(self.pick_index))
+        except FileNotFoundError:
+            print('not found state file')
+        except:
+            print('load state falied,use init state')
+    def save_state(self,outdir):
+        np.save(os.path.join(outdir,'dg_state.npy'),np.array(self.pick_index))
     def load_bert(self, config, checkpoint):
         model = load_trained_model_from_checkpoint(config, checkpoint, trainable=False, seq_len=None)
         return model
@@ -348,7 +357,7 @@ class MultiTask_DataLoader():
             sample = [self.train_list[i] for i in indexs]
             for i in indexs:
                 self.pick_index[int(i)] += 1
-            self.epochs = int(np.mean(self.pick_index))
+            self.epochs = 1+int(np.mean(self.pick_index))
         else:
             sample = random.sample(self.test_list, self.batch)
 

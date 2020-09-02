@@ -10,13 +10,21 @@
 </h2>
 <p align="center">
 CTC\Transducer\LAS Default is Chinese ASR
+
+Now the project is still in the development stages
+
+Welcome to use and feedback bugs
 </p>
+
+
+
 
 ## What's New?
 
--   MultiTask `multi task training Structure,now just for conformer`
--   Fix tf.data.Dataset error
--   Fix bugs
+-  Fix LAS `stop_loss` bug
+-  Change CTC `tf.nn.ctc_loss` to `tf.keras.backend.ctc_batch_cost`
+    -   found `tf.nn.ctc_loss` can't play the right role
+    -   So the blank must be n_classes+1,`blank_at_zero` set False 
 
 
 ## Future
@@ -50,6 +58,7 @@ CTC\Transducer\LAS Default is Chinese ASR
 -   keras-bert
 -   addons `For LAS structure,pip install tensorflow-addons`
 -   tqdm
+-   jieba
 -   wrap_rnnt_loss `not essential,provide in ./externals`
 -   wrap_ctc_decoders `not essential,provide in ./externals`
 

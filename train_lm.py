@@ -17,7 +17,20 @@ class LM_Trainer():
         self.runner = lm_runners.LMTrainer(self.config['running_config'],one2one=self.model.one2one)
         self.runner.set_total_train_steps(self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs'])
         self.runner.compile(self.model,self.optimizer)
+    def make_train_batch_data(self):
+        batches=[]
+        for _ in range(self.config['running_config']['train_steps_per_batches']):
+            x,y,feature=self.dg.generate()
+            batches.append(( x,y,feature))
 
+        return batches
+    def make_eval_batch_data(self):
+        batches = []
+        for _ in range(self.config['running_config']['eval_steps_per_batches']):
+            x, y, feature= self.dg.generate(train=False)
+            batches.append((x,y,feature))
+
+        return batches
     def train(self):
         while 1:
 
@@ -28,6 +41,8 @@ class LM_Trainer():
                 self.runner.save_checkpoint()
                 logging.info('Finish training!')
                 break
+            if self.runner.steps % self.config['running_config']['save_interval_steps'] == 0:
+                self.dg.save_state(self.config['running_config']['outdir'])
 if __name__ == '__main__':
     import argparse
     parse = argparse.ArgumentParser()

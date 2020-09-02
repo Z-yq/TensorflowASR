@@ -1,15 +1,10 @@
 
-import abc
 import os
 from tqdm import tqdm
 from colorama import Fore
-
-import numpy as np
 import tensorflow as tf
+from utils.tools import preprocess_paths
 
-from utils.text_featurizers import TextFeaturizer
-from utils.tools import preprocess_paths, get_num_batches, bytes_to_string
-from utils.metrics import ErrorRate, wer, cer
 
 
 class BaseRunner():

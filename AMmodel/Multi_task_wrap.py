@@ -703,57 +703,58 @@ class MultiTaskLAS(tf.keras.Model):
 
             # Encoder Step.
             input_lengths=tf.squeeze(input_lengths,-1)
-            with tf.name_scope('inference'):
 
-                encoder_hidden_states1, encoder_hidden_states2, encoder_hidden_states3 = self.encoder(
-                    inputs, training=False
+
+            encoder_hidden_states1, encoder_hidden_states2, encoder_hidden_states3 = self.encoder(
+                inputs, training=False
+            )
+            encoder_hidden_states = tf.concat(
+                [encoder_hidden_states1, encoder_hidden_states2, encoder_hidden_states3], -1)
+            batch_size = tf.shape(encoder_hidden_states)[0]
+            alignment_size = tf.shape(encoder_hidden_states)[1]
+            ctc3_output = self.fc3(encoder_hidden_states3)
+            phone_decode=tf.keras.backend.ctc_decode(tf.nn.softmax(ctc3_output,-1),input_length=input_lengths)[0][0]
+            # Setup some initial placeholders for decoder step. Include:
+            # 1. batch_size for inference.
+            # 2. alignment_size for attention size.
+            # 3. initial state for decoder cell.
+            # 4. memory (encoder hidden state) for attention mechanism.
+            # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
+            self.decoder.sampler.set_batch_size(batch_size)
+            self.decoder.cell.set_alignment_size(alignment_size)
+            # self.setup_maximum_iterations(alignment_size)
+            self.decoder.setup_decoder_init_state(
+                self.decoder.cell.get_initial_state(batch_size)
+            )
+            self.decoder.cell.attention_layer.setup_memory(
+                memory=encoder_hidden_states,
+                memory_sequence_length=input_lengths,  # use for mask attention.
+            )
+            if self.use_window_mask:
+                self.decoder.cell.attention_layer.setup_window(
+                    win_front=self.win_front, win_back=self.win_back
                 )
-                encoder_hidden_states = tf.concat(
-                    [encoder_hidden_states1, encoder_hidden_states2, encoder_hidden_states3], -1)
-                batch_size = tf.shape(encoder_hidden_states)[0]
-                alignment_size = tf.shape(encoder_hidden_states)[1]
 
-                # Setup some initial placeholders for decoder step. Include:
-                # 1. batch_size for inference.
-                # 2. alignment_size for attention size.
-                # 3. initial state for decoder cell.
-                # 4. memory (encoder hidden state) for attention mechanism.
-                # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
-                self.decoder.sampler.set_batch_size(batch_size)
-                self.decoder.cell.set_alignment_size(alignment_size)
-                # self.setup_maximum_iterations(alignment_size)
-                self.decoder.setup_decoder_init_state(
-                    self.decoder.cell.get_initial_state(batch_size)
-                )
-                self.decoder.cell.attention_layer.setup_memory(
-                    memory=encoder_hidden_states,
-                    memory_sequence_length=input_lengths,  # use for mask attention.
-                )
-                if self.use_window_mask:
-                    self.decoder.cell.attention_layer.setup_window(
-                        win_front=self.win_front, win_back=self.win_back
-                    )
+            (
+                (classes_prediction, stop_token_prediction, _),
+                final_decoder_state,
+                _,
+            ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
 
-                (
-                    (classes_prediction, stop_token_prediction, _),
-                    final_decoder_state,
-                    _,
-                ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
+            bert_output = tf.reshape(
+                classes_prediction, [batch_size, -1, 768]
+            )
+            stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
+            decoder_output = self.decoder_project(bert_output)
 
-                bert_output = tf.reshape(
-                    classes_prediction, [batch_size, -1, 768]
-                )
-                stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
-                decoder_output = self.decoder_project(bert_output)
-
-                decoder_output = self.token_project(decoder_output)
-                final_decoded = self.fc_final(decoder_output)
+            decoder_output = self.token_project(decoder_output)
+            final_decoded = self.fc_final(decoder_output)
 
 
-                alignment_history = tf.transpose(
-                    final_decoder_state.alignment_history.stack(), [1, 2, 0]
-                )
-                final_decoded = tf.argmax(final_decoded, -1)
-            return [final_decoded]
+            alignment_history = tf.transpose(
+                final_decoder_state.alignment_history.stack(), [1, 2, 0]
+            )
+            final_decoded = tf.argmax(final_decoded, -1)
+            return [final_decoded,phone_decode]
         self.recognize_pb=inference
 

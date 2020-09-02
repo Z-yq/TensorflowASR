@@ -127,24 +127,26 @@ class MultiTaskLASTrainer(BaseTrainer):
         classes_loss = self.mask_loss(txt_label, final_decoded)
         stop_loss = self.stop_loss(txt_label, stop_token_pred)
         feature_map_loss = self.bert_feature_loss(bert_feature, bert_output)
-        ctc1_loss = tf.nn.ctc_loss(words_label, ctc1_output, words_label_length, input_length, False,
-                                   blank_index=self.text_featurizer.blank)
-        ctc2_loss = tf.nn.ctc_loss(phone_label, ctc2_output, phone_label_length, input_length, False,
-                                   blank_index=self.text_featurizer.blank)
-        ctc3_loss = tf.nn.ctc_loss(py_label, ctc3_output, py_label_length, input_length, False,
-                                   blank_index=self.text_featurizer.blank)
+        ctc1_loss = tf.keras.backend.ctc_batch_cost(words_label, ctc1_output, input_length[:, tf.newaxis],
+                                                    words_label_length[:, tf.newaxis])
+
+        ctc2_loss = tf.keras.backend.ctc_batch_cost(phone_label, ctc2_output, input_length[:, tf.newaxis],
+                                                    phone_label_length[:, tf.newaxis])
+
+        ctc3_loss = tf.keras.backend.ctc_batch_cost(py_label, ctc3_output, input_length[:, tf.newaxis],
+                                                    py_label_length[:, tf.newaxis])
         if self.config['guide_attention']:
             real_length = tf.shape(final_decoded)[1]
             alig_loss = self.alig_loss(guide_matrix[:, :real_length], alignments[:, :real_length])
 
-        self.train_metrics['classes_loss'].update_state(classes_loss)
-        self.train_metrics["stop_loss"].update_state(stop_loss)
-        self.train_metrics["ctc1_loss"].update_state(ctc1_loss)
-        self.train_metrics["ctc2_loss"].update_state(ctc2_loss)
-        self.train_metrics["ctc3_loss"].update_state(ctc3_loss)
-        self.train_metrics["feature_map_loss"].update_state(feature_map_loss)
+        self.eval_metrics['classes_loss'].update_state(classes_loss)
+        self.eval_metrics["stop_loss"].update_state(stop_loss)
+        self.eval_metrics["ctc1_loss"].update_state(ctc1_loss)
+        self.eval_metrics["ctc2_loss"].update_state(ctc2_loss)
+        self.eval_metrics["ctc3_loss"].update_state(ctc3_loss)
+        self.eval_metrics["feature_map_loss"].update_state(feature_map_loss)
         if self.config['guide_attention']:
-            self.train_metrics["alig_guide_loss"].update_state(alig_loss)
+            self.eval_metrics["alig_guide_loss"].update_state(alig_loss)
 
 
     def stop_loss(self,labels,y_pred):

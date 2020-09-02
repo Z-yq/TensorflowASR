@@ -24,6 +24,7 @@ class AM_Trainer():
         else:
             self.dg=MultiTask_DataLoader(config)
         self.dg.speech_config['reduction_factor']=self.am.model.time_reduction_factor
+        self.dg.load_state(self.config['running_config']['outdir'])
         if self.am.model_type=='CTC':
             self.runner = ctc_runners.CTCTrainer(self.dg.speech_featurizer,self.dg.text_featurizer,self.config['running_config'])
         elif self.am.model_type=='LAS':
@@ -57,6 +58,19 @@ class AM_Trainer():
         model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
         self.init_steps= int(files[-1].split('_')[-1].replace('.h5', ''))
 
+    def recevie_data(self,r):
+
+        data = r.rpop(self.config['data_name'])
+        data = eval(data)
+        trains=[]
+        for key in self.config['data_dict_key']:
+            x = data[key]
+            dtype = data['%s_dtype'%key]
+            shape = data['%s_shape'%key]
+            x = np.frombuffer(x, dtype)
+            x = x.reshape(shape)
+            trains.append(x)
+        return trains
 
 
     def train(self):
@@ -78,6 +92,8 @@ class AM_Trainer():
                 self.runner.save_checkpoint()
                 logging.info('Finish training!')
                 break
+            if self.runner.steps%self.config['running_config']['save_interval_steps']==0:
+                self.dg.save_state(self.config['running_config']['outdir'])
 if __name__ == '__main__':
 
     parse=argparse.ArgumentParser()

@@ -5,6 +5,7 @@ from keras.preprocessing.sequence import pad_sequences
 from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
 import random
 import tensorflow as tf
+import os
 class LM_DataLoader():
     def __init__(self, config,training=True):
         self.train = training
@@ -14,11 +15,20 @@ class LM_DataLoader():
         self.word_featurizer = TextFeaturizer(config['lm_word'])
         self.init_text_to_vocab()
         self.batch = config['running_config']['batch_size']
-        self.epochs=0
+        self.epochs=1
     def init_bert(self, config, checkpoint):
         model = load_trained_model_from_checkpoint(config, checkpoint, trainable=False, seq_len=None)
         return model
-
+    def load_state(self,outdir):
+        try:
+            self.train_pick=np.load(os.path.join(outdir,'dg_state.npy')).flatten().tolist()
+            self.epochs=1+int(np.mean(self.train_pick))
+        except FileNotFoundError:
+            print('not found state file')
+        except:
+            print('load state falied,use init state')
+    def save_state(self,outdir):
+        np.save(os.path.join(outdir,'dg_state.npy'),np.array(self.train_pick))
     def return_data_types(self):
 
 
@@ -152,7 +162,7 @@ class LM_DataLoader():
             sample = [self.train_texts[i] for i in indexs]
             for i in indexs:
                 self.train_pick[int(i)] += 1
-            self.epochs = int(np.mean(self.train_pick))
+            self.epochs = 1+int(np.mean(self.train_pick))
         else:
             sample = random.sample(self.test_texts, self.batch)
         trainx = [self.text_to_vocab(i) for i in sample]

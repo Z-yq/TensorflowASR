@@ -25,9 +25,9 @@ class AM():
             self.config['decoder_config'].update({'model_type': 'CTC'})
             self.model_type='CTC'
         elif 'Multi' in self.config['model_config']['name']:
-            self.config['decoder1_config'].update({'model_type': 'LAS'})
-            self.config['decoder2_config'].update({'model_type': 'LAS'})
-            self.config['decoder3_config'].update({'model_type': 'LAS'})
+            self.config['decoder1_config'].update({'model_type': 'CTC'})
+            self.config['decoder2_config'].update({'model_type': 'CTC'})
+            self.config['decoder3_config'].update({'model_type': 'CTC'})
             self.config['decoder4_config'].update({'model_type': 'LAS'})
             self.config['decoder_config'].update({'model_type': 'LAS'})
             self.model_type = 'MultiTask'

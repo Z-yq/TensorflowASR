@@ -13,12 +13,12 @@ speech_config:
   normalize_feature: True
   normalize_per_feature: False
   reduction_factor: 4 #should keep the same with model_config, DS2 : time_reduction_factor *= s[0] for s in 'conv_strides'
-  train_list: 'D:/TF2-ASR/am_train_list.txt'
-  eval_list: 'D:/TF2-ASR/am_train_list.txt'
+  train_list: './am_train_list.txt'
+  eval_list: './am_train_list.txt'
 
 decoder_config:
-  vocabulary: 'D:/TF2-ASR/AMmodel/am_tokens.txt'
-  blank_at_zero: False
+  vocabulary: './AMmodel/am_tokens.txt'
+  blank_at_zero: False #CTC should keep False
   beam_width: 1
 
 
@@ -26,8 +26,8 @@ augments_config:
   noise:
     active: False
     sample_rate: 16000
-    SNR: [-5,5]
-    noises: './noise'
+    SNR: [-2,15]
+    noises: './noise' #noise wav path
   masking:
     active: True
     zone: (0.1,0.9)

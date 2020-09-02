@@ -42,14 +42,12 @@ class CTCTrainer(BaseTrainer):
         with tf.GradientTape() as tape:
             y_pred = self.model(features, training=True)
             tape.watch(y_pred)
-            train_loss = tf.nn.ctc_loss(
-        labels=tf.cast(labels, tf.int32),
-        logit_length=tf.cast(input_length, tf.int32),
-        logits=tf.cast(y_pred, tf.float32),
-        label_length=tf.cast(label_length, tf.int32),
-        logits_time_major=False,
-        blank_index=self.text_featurizer.blank
-    )
+
+            train_loss=tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
+                                            tf.cast(y_pred, tf.float32),
+                                            tf.cast(input_length[:,tf.newaxis], tf.int32),
+                                            tf.cast(label_length[:,tf.newaxis], tf.int32),
+                                            )
             train_loss = tf.nn.compute_average_loss(train_loss,
                                                     global_batch_size=self.global_batch_size)
 
@@ -71,14 +69,11 @@ class CTCTrainer(BaseTrainer):
 
         logits = self.model(features, training=False)
 
-        per_eval_loss = tf.nn.ctc_loss(
-        labels=tf.cast(labels, tf.int32),
-        logit_length=tf.cast(input_length, tf.int32),
-        logits=tf.cast(logits, tf.float32),
-        label_length=tf.cast(label_length, tf.int32),
-        logits_time_major=False,
-        blank_index=self.text_featurizer.blank
-    )
+        per_eval_loss = tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
+                                            tf.cast(logits, tf.float32),
+                                            tf.cast(input_length[:,tf.newaxis], tf.int32),
+                                            tf.cast(label_length[:,tf.newaxis], tf.int32),
+                                            )
 
         # Update metrics
         self.eval_metrics["ctc_loss"].update_state(per_eval_loss)
