@@ -196,7 +196,8 @@ class MultiTaskLASTrainer(BaseTrainer):
                 self.train_progbar.update(1)
                 self._print_train_metrics(self.train_progbar)
                 self._check_log_interval()
-                self._check_save_interval()
+                if self._check_save_interval():
+                    break
 
             except tf.errors.OutOfRangeError:
                 continue

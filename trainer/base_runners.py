@@ -150,7 +150,8 @@ class BaseTrainer(BaseRunner):
                 self.train_progbar.update(1)
                 self._print_train_metrics(self.train_progbar)
                 self._check_log_interval()
-                self._check_save_interval()
+                if self._check_save_interval():
+                    break
 
             except tf.errors.OutOfRangeError:
                 continue
@@ -213,6 +214,8 @@ class BaseTrainer(BaseRunner):
         """Save log interval."""
         if self.steps % self.config["save_interval_steps"] == 0:
             self.save_checkpoint()
+            return True
+        return False
 
     def _check_eval_interval(self):
         """Save log interval."""
