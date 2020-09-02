@@ -10,9 +10,11 @@
 </h2>
 <p align="center">
 CTC\Transducer\LAS Default is Chinese ASR
-
+</p>
+<p align="center">
 Now the project is still in the development stages
-
+</p>
+<p align="center">
 Welcome to use and feedback bugs
 </p>
 
