@@ -167,7 +167,9 @@ class LMTrainer(BaseTrainer):
             self.model = model
 
             self.optimizer = tf.keras.optimizers.get(optimizer)
+            self.model._build()
             try:
+
                 self.load_checkpoint()
             except:
                 logging.info('lm trainer resume failed')
