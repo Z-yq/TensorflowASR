@@ -41,6 +41,7 @@ class CTCTrainer(BaseTrainer):
 
         with tf.GradientTape() as tape:
             y_pred = self.model(features, training=True)
+            y_pred=tf.nn.softmax(y_pred,-1)
             tape.watch(y_pred)
 
             train_loss=tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
@@ -68,7 +69,7 @@ class CTCTrainer(BaseTrainer):
         features, _, input_length, labels, label_length = batch
 
         logits = self.model(features, training=False)
-
+        logits=tf.nn.softmax(logits,-1)
         per_eval_loss = tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
                                             tf.cast(logits, tf.float32),
                                             tf.cast(input_length[:,tf.newaxis], tf.int32),
