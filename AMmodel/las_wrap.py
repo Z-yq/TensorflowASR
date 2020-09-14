@@ -8,6 +8,7 @@ from tensorflow_addons.seq2seq import BahdanauAttention
 
 from tensorflow_addons.seq2seq import Decoder
 from AMmodel.layers.decoder import dynamic_decode
+from AMmodel.layers.time_frequency import Spectrogram,Melspectrogram
 # from tensorflow_addons.seq2seq import dynamic_decode
 
 class LASConfig():
@@ -535,10 +536,8 @@ class LASDecoder(Decoder):
 
 
 class LAS(tf.keras.Model):
-    """Tensorflow tacotron-2 model."""
 
-    def __init__(self, encoder, config, training, enable_tflite_convertible=False, **kwargs):
-        """Initalize tacotron-2 layers."""
+    def __init__(self, encoder, config, training, enable_tflite_convertible=False,speech_config=dict, **kwargs):
         super().__init__(self, **kwargs)
         self.encoder = encoder
         self.decoder_cell = DecoderCell(
@@ -551,6 +550,24 @@ class LAS(tf.keras.Model):
             enable_tflite_convertible=enable_tflite_convertible
         )
         self.config = config
+        self.speech_config = speech_config
+        self.mel_layer = None
+        if speech_config['use_mel_layer']:
+            if speech_config['mel_layer_type'] == 'Melspectrogram':
+                self.mel_layer = Melspectrogram(sr=speech_config['sample_rate'],
+                                                n_mels=speech_config['num_feature_bins'],
+                                                n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
+                                                n_dft=1024,
+                                                trainable_fb=speech_config['trainable_kernel']
+                                                )
+            else:
+                self.mel_layer = Spectrogram(
+                                             n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
+                                             n_dft=1024,
+                                             trainable_kernel=speech_config['trainable_kernel']
+                                             )
+
+
         self.use_window_mask = False
         self.maximum_iterations = 1000 if training else 50
         self.enable_tflite_convertible = enable_tflite_convertible
@@ -569,8 +586,11 @@ class LAS(tf.keras.Model):
 
         batch=shape[0]
         inputs = np.random.normal(size=shape).astype(np.float32)
-        input_lengths = np.array([shape[1]//4]*batch,'int32')
-        print(input_lengths.shape)
+        if self.mel_layer is not None:
+            input_lengths = np.array([shape[1] // 4//self.mel_layer.n_hop] * batch, 'int32')
+        else:
+            input_lengths = np.array([shape[1]//4]*batch,'int32')
+
         if training:
             targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]*batch)
             targets = targets[:, :, np.newaxis]
@@ -608,6 +628,9 @@ class LAS(tf.keras.Model):
         """Call logic."""
         # Encoder Step.
         # input_lengths=tf.squeeze(input_lengths,-1)
+        if self.mel_layer is not None:
+            inputs=self.mel_layer(inputs)
+        
         encoder_hidden_states = self.encoder(
             inputs, training=training
         )
@@ -664,11 +687,11 @@ class LAS(tf.keras.Model):
             )
 
         return decoder_output, stop_token_prediction, alignment_history
-    def return_pb_function(self,f,c):
+    def return_pb_function(self,shape):
         @tf.function(
             experimental_relax_shapes=True,
             input_signature=[
-                tf.TensorSpec([None, None,f,c], dtype=tf.float32),
+                tf.TensorSpec(shape, dtype=tf.float32),
                 tf.TensorSpec([None, 1], dtype=tf.int32),
             ],
         )
@@ -679,7 +702,8 @@ class LAS(tf.keras.Model):
             input_lengths=tf.squeeze(input_lengths,-1)
             with tf.name_scope('inference'):
 
-
+                if self.mel_layer is not None:
+                    inputs=self.mel_layer(inputs)
                 encoder_hidden_states = self.encoder.call(
                     inputs, training=False
                 )
@@ -724,4 +748,5 @@ class LAS(tf.keras.Model):
             decoder_output=tf.argmax(decoder_output,-1)
             return [decoder_output]
         self.recognize_pb=inference
+
 

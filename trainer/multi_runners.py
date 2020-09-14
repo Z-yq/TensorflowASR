@@ -64,7 +64,15 @@ class MultiTaskLASTrainer(BaseTrainer):
         x, wavs, bert_feature, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length, txt_label, txt_label_length, guide_matrix= batch
 
         with tf.GradientTape() as tape:
-            ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(x,
+            if self.model.mel_layer is not None:
+                ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(
+                    wavs,
+                    input_length,
+                    bert_feature,
+                    txt_label_length,
+                    training=True)
+            else:
+                ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(x,
             input_length,
             bert_feature,
             txt_label_length,
@@ -117,8 +125,15 @@ class MultiTaskLASTrainer(BaseTrainer):
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
         x, wavs, bert_feature, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length, txt_label, txt_label_length, guide_matrix = batch
-
-        ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(x,
+        if self.model.mel_layer is not None:
+            ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(
+                wavs,
+                input_length,
+                bert_feature,
+                txt_label_length,
+                training=True)
+        else:
+            ctc1_output, ctc2_output, ctc3_output, final_decoded, bert_output, stop_token_pred, alignments = self.model(x,
                                                                                                                     input_length,
                                                                                                                     bert_feature,
                                                                                                                     txt_label_length,
@@ -173,8 +188,10 @@ class MultiTaskLASTrainer(BaseTrainer):
         f,c=self.speech_featurizer.compute_feature_dim()
         with self.strategy.scope():
             self.model = model
-
-            self.model._build([1, 80, f, c],training=True)
+            if self.model.mel_layer is not None:
+                self.model._build([1, 16000,1], training=True)
+            else:
+                self.model._build([1, 80, f, c],training=True)
             try:
                 self.load_checkpoint()
             except:

@@ -26,9 +26,6 @@ class BN_PRelu(tf.keras.layers.Layer):
 
 
 
-
-
-
 class ESP_alhpa(tf.keras.layers.Layer):
     """
     ESP-alpha module where alpha controls depth of network.
@@ -130,11 +127,13 @@ class ESPNetCTC(CtcModel):
     def __init__(self,
                  model_config: dict,
                  num_classes: int,
-                 name: str = "ESPNet"):
+                 name: str = "ESPNet",
+                 speech_config=dict):
         super(ESPNetCTC, self).__init__(
             encoder= ESPNet(**model_config),
             num_classes=num_classes,
-            name=f"{name}_ctc"
+            name=f"{name}_ctc",
+            speech_config=speech_config
         )
         self.time_reduction_factor = 4
 
@@ -143,20 +142,22 @@ class ESPNetLAS(LAS):
                  config,
                  training,
                  name: str = "LAS",
-                 enable_tflite_convertible=False):
+                 enable_tflite_convertible=False,
+                 speech_config=dict):
         config['LAS_decoder'].update({'encoder_dim': config['model_config']['filter_size']})
         decoder_config = LASConfig(**config['LAS_decoder'])
 
         super(ESPNetLAS, self).__init__(
             encoder= ESPNet(**config['model_config']),
             config=decoder_config, training=training,enable_tflite_convertible=enable_tflite_convertible,
-        name=name)
+        name=name,speech_config=speech_config)
         self.time_reduction_factor = 4
 
 class ESPNetTransducer(Transducer):
     def __init__(self,
                  config,
-                 name: str = "ESPNet"):
+                 name: str = "ESPNet",
+                 speech_config=dict):
 
         super(ESPNetTransducer, self).__init__(
             encoder= ESPNet(**config['model_config']),
@@ -166,7 +167,8 @@ class ESPNetTransducer(Transducer):
             num_lstms=config['Transducer_decoder']['num_lstms'],
             lstm_units=config['Transducer_decoder']['lstm_units'],
             joint_dim=config['Transducer_decoder']['joint_dim'],
-            name=name+'_transducer'
+            name=name+'_transducer',
+            speech_config=speech_config
         )
         self.time_reduction_factor = 4
 

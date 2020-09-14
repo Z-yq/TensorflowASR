@@ -47,15 +47,23 @@ class LASTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, _, input_length, labels, label_length,guide_matrix= batch
+        features, wavs, input_length, labels, label_length,guide_matrix= batch
         max_iter=tf.shape(labels)[1]
         self.model.maxinum_iterations = max_iter
         with tf.GradientTape() as tape:
-            y_pred,stop_token_pred,aligments = self.model(features,
-            input_length,
-            tf.expand_dims(labels,-1),
-            label_length,
-             training=True)
+            if self.model.mel_layer is not None:
+                y_pred, stop_token_pred, aligments = self.model(wavs,
+                                                                input_length,
+                                                                tf.expand_dims(labels, -1),
+                                                                label_length,
+                                                                training=True)
+            else:
+                y_pred, stop_token_pred, aligments = self.model(features,
+                                                                input_length,
+                                                                tf.expand_dims(labels, -1),
+                                                                label_length,
+                                                                training=True)
+
 
             classes_loss = self.mask_loss(labels,y_pred)
             stop_loss=self.stop_loss(labels,stop_token_pred)
@@ -87,11 +95,18 @@ class LASTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
-        features, _, input_length, labels, label_length, guide_matrix = batch
+        features,wavs, input_length, labels, label_length, guide_matrix = batch
 
         max_iter = tf.shape(labels)[1]
         self.model.maxinum_iterations=max_iter
-        y_pred, stop_token_pred, aligments = self.model(features,
+        if self.model.mel_layer is not None:
+            y_pred, stop_token_pred, aligments = self.model(wavs,
+                                                            input_length,
+                                                            tf.expand_dims(labels, -1),
+                                                            label_length,
+                                                            training=False)
+        else:
+            y_pred, stop_token_pred, aligments = self.model(features,
                                                         input_length,
                                                         tf.expand_dims(labels, -1),
                                                         label_length,
@@ -133,8 +148,10 @@ class LASTrainer(BaseTrainer):
         f,c=self.speech_featurizer.compute_feature_dim()
         with self.strategy.scope():
             self.model = model
-
-            self.model._build([1, 80, f, c],training=True)
+            if self.model.mel_layer is not None:
+                self.model._build([1, 16000,1], training=True)
+            else:
+                self.model._build([1, 80, f, c],training=True)
             try:
                 self.load_checkpoint()
             except:

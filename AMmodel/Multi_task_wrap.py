@@ -9,6 +9,7 @@ from tensorflow_addons.seq2seq import BahdanauAttention
 from tensorflow_addons.seq2seq import Decoder
 from AMmodel.layers.decoder import dynamic_decode
 from AMmodel.conformer import ConformerBlock
+from AMmodel.layers.time_frequency import Spectrogram,Melspectrogram
 # from tensorflow_addons.seq2seq import dynamic_decode
 
 class MultiTaskLASConfig():
@@ -147,7 +148,7 @@ class TrainingSampler(Sampler):
 
     def next_inputs(self, time, outputs, state, sample_ids, **kwargs):
         finished = time + 1 >= self.max_lengths
-        next_inputs = self.targets[:, time, :]
+        next_inputs = outputs[:, -768:]
 
         next_state = state
         return (finished, next_inputs, next_state)
@@ -544,13 +545,27 @@ class LASDecoder(Decoder):
 
 
 class MultiTaskLAS(tf.keras.Model):
-    """Tensorflow tacotron-2 model."""
 
-    def __init__(self, encoder,classes1,classes2,classes3, config, training, enable_tflite_convertible=False, **kwargs):
-        """Initalize tacotron-2 layers."""
+    def __init__(self, encoder,classes1,classes2,classes3, config, training, enable_tflite_convertible=False,speech_config=dict, **kwargs):
         super().__init__(self, **kwargs)
         self.encoder = encoder
-
+        self.speech_config = speech_config
+        self.mel_layer = None
+        if speech_config['use_mel_layer']:
+            if speech_config['mel_layer_type'] == 'Melspectrogram':
+                self.mel_layer = Melspectrogram(sr=speech_config['sample_rate'],
+                                                n_mels=speech_config['num_feature_bins'],
+                                                n_hop=int(
+                                                    speech_config['stride_ms'] * speech_config['sample_rate'] // 1000),
+                                                n_dft=1024,
+                                                trainable_fb=speech_config['trainable_kernel']
+                                                )
+            else:
+                self.mel_layer = Spectrogram(
+                    n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000),
+                    n_dft=1024,
+                    trainable_kernel=speech_config['trainable_kernel']
+                )
         self.fc1 = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Dense(units=classes1, activation="linear",
                                   use_bias=True), name="fully_connected1")
@@ -597,7 +612,10 @@ class MultiTaskLAS(tf.keras.Model):
 
         batch=shape[0]
         inputs = np.random.normal(size=shape).astype(np.float32)
-        input_lengths = np.array([shape[1]//4]*batch,'int32')
+        if self.mel_layer is not None:
+            input_lengths = np.array([shape[1] // 4//self.mel_layer.n_hop] * batch, 'int32')
+        else:
+            input_lengths = np.array([shape[1]//4]*batch,'int32')
 
         if training:
             targets = np.random.random([batch,9,768])
@@ -614,12 +632,7 @@ class MultiTaskLAS(tf.keras.Model):
             )
     def add_featurizers(self,
                         text_featurizer):
-        """
-        Function to add featurizer to model to convert to end2end tflite
-        Args:
-            text_featurizer: TextFeaturizer instance
-            scorer: external language model scorer
-        """
+
 
         self.text_featurizer = text_featurizer
     # @tf.function(experimental_relax_shapes=True)
@@ -636,6 +649,8 @@ class MultiTaskLAS(tf.keras.Model):
         """Call logic."""
         # Encoder Step.
         # input_lengths=tf.squeeze(input_lengths,-1)
+        if self.mel_layer is not None:
+            inputs = self.mel_layer(inputs)
         encoder_hidden_states1, encoder_hidden_states2,encoder_hidden_states3= self.encoder(
             inputs, training=training
         )
@@ -690,11 +705,11 @@ class MultiTaskLAS(tf.keras.Model):
         )
 
         return ctc1_output,ctc2_output,ctc3_output,final_decoded,bert_output, stop_token_prediction, alignment_history
-    def return_pb_function(self,f,c):
+    def return_pb_function(self,shape):
         @tf.function(
             experimental_relax_shapes=True,
             input_signature=[
-                tf.TensorSpec([None, None,f,c], dtype=tf.float32),
+                tf.TensorSpec(shape, dtype=tf.float32),
                 tf.TensorSpec([None, 1], dtype=tf.int32),
             ],
         )
@@ -704,7 +719,8 @@ class MultiTaskLAS(tf.keras.Model):
             # Encoder Step.
             input_lengths=tf.squeeze(input_lengths,-1)
 
-
+            if self.mel_layer is not None:
+                inputs=self.mel_layer(inputs)
             encoder_hidden_states1, encoder_hidden_states2, encoder_hidden_states3 = self.encoder(
                 inputs, training=False
             )

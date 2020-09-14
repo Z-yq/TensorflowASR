@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 
-
+from AMmodel.layers.time_frequency import Melspectrogram
 from AMmodel.transducer_wrap import Transducer
 from AMmodel.ctc_wrap import CtcModel
 from AMmodel.las_wrap import LAS,LASConfig
@@ -301,6 +301,7 @@ class ConformerTransducer(Transducer):
                  lstm_units: int = 512,
                  joint_dim: int = 1024,
                  name: str = "conformer_transducer",
+                 speech_config=dict,
                  **kwargs):
         super(ConformerTransducer, self).__init__(
             encoder=ConformerEncoder(
@@ -319,7 +320,7 @@ class ConformerTransducer(Transducer):
             num_lstms=num_lstms,
             lstm_units=lstm_units,
             joint_dim=joint_dim,
-            name=name, **kwargs
+            name=name, speech_config= speech_config, **kwargs
         )
         self.time_reduction_factor = reduction_factor
 class ConformerCTC(CtcModel):
@@ -334,6 +335,7 @@ class ConformerCTC(CtcModel):
                  fc_factor: float = 0.5,
                  dropout: float = 0,
                  name='conformerCTC',
+                 speech_config=dict,
                  **kwargs):
         super(ConformerCTC, self).__init__(
             encoder=ConformerEncoder(
@@ -345,13 +347,14 @@ class ConformerCTC(CtcModel):
                 kernel_size=kernel_size,
                 fc_factor=fc_factor,
                 dropout=dropout,
-            ),num_classes=vocabulary_size,name=name)
+            ),num_classes=vocabulary_size,name=name,speech_config=speech_config)
         self.time_reduction_factor = reduction_factor
 class ConformerLAS(LAS):
     def __init__(self,
                  config,
                  training=True,
                  enable_tflite_convertible=False,
+                 speech_config=dict,
                  ):
         config['LAS_decoder'].update({'encoder_dim':config['dmodel']})
         decoder_config=LASConfig(**config['LAS_decoder'])
@@ -368,8 +371,9 @@ class ConformerLAS(LAS):
                 dropout=config['dropout'],
                 name=config['name']
             ),config=decoder_config,training=training,enable_tflite_convertible=enable_tflite_convertible,
-
+        speech_config=speech_config
         )
+        self.time_reduction_factor = config['reduction_factor']
 if __name__ == '__main__':
     from utils.user_config import UserConfig
     from utils.text_featurizers import TextFeaturizer

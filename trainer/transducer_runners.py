@@ -44,13 +44,16 @@ class TransducerTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, _, input_length, labels, label_length = batch
+        features, wavs, input_length, labels, label_length = batch
         pred_inp=labels
         target=labels[:,1:]
         label_length-=1
 
         with tf.GradientTape() as tape:
-            logits = self.model([features, pred_inp], training=True)
+            if self.model.mel_layer is not None:
+                logits = self.model([wavs, pred_inp], training=True)
+            else:
+                logits = self.model([features, pred_inp], training=True)
             tape.watch(logits)
             # print(logits.shape,target.shape)
             if USE_TF:
@@ -79,12 +82,14 @@ class TransducerTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
-        features, _, input_length, labels, label_length = batch
+        features, wavs, input_length, labels, label_length = batch
         pred_inp = labels
         target = labels[:, 1:]
         label_length -= 1
-
-        logits = self.model([features, pred_inp], training=False)
+        if self.model.mel_layer is not None:
+            logits=self.model([wavs, pred_inp], training=False)
+        else:
+            logits = self.model([features, pred_inp], training=False)
         if USE_TF:
             eval_loss = self.rnnt_loss(logits=logits, labels=target
                                             , label_length=label_length,
@@ -105,7 +110,10 @@ class TransducerTrainer(BaseTrainer):
         f, c = self.speech_featurizer.compute_feature_dim()
         with self.strategy.scope():
             self.model = model
-            self.model._build([1,80,f,c])
+            if self.model.mel_layer is not None:
+                self.model._build([1, 16000, 1])
+            else:
+                self.model._build([1, 80, f, c])
             self.model.summary(line_length=100)
             try:
                 self.load_checkpoint()

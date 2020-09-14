@@ -6,7 +6,7 @@ import tensorflow as tf
 import collections
 from utils.tools import shape_list, get_shape_invariants,merge_repeated
 from utils.text_featurizers import TextFeaturizer
-
+from AMmodel.layers.time_frequency import Melspectrogram,Spectrogram
 
 Hypotheses = collections.namedtuple(
     "Hypotheses",
@@ -113,7 +113,7 @@ class Transducer(tf.keras.Model):
                  num_lstms: int = 1,
                  lstm_units: int = 320,
                  joint_dim: int = 1024,
-                 name="transducer",
+                 name="transducer", speech_config=dict,
                  **kwargs):
         super(Transducer, self).__init__(name=name, **kwargs)
         self.encoder = encoder
@@ -130,6 +130,22 @@ class Transducer(tf.keras.Model):
             joint_dim=joint_dim,
             name=f"{name}_joint"
         )
+        self.speech_config = speech_config
+        self.mel_layer = None
+        if speech_config['use_mel_layer']:
+            if speech_config['mel_layer_type'] == 'Melspectrogram':
+                self.mel_layer = Melspectrogram(sr=speech_config['sample_rate'],
+                                                n_mels=speech_config['num_feature_bins'],
+                                                n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
+                                                n_dft=1024,
+                                                trainable_fb=speech_config['trainable_kernel']
+                                                )
+            else:
+                self.mel_layer = Spectrogram(
+                                             n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
+                                             n_dft=1024,
+                                             trainable_kernel=speech_config['trainable_kernel']
+                                             )
         self.kept_hyps = None
         self.startid=0
         self.endid=1
@@ -152,43 +168,24 @@ class Transducer(tf.keras.Model):
 
     # @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=False):
-        """
-        Transducer Model call function
-        Args:
-            features: audio features in shape [B, T, F, C]
-            predicted: predicted sequence of character ids, in shape [B, U]
-            training: python boolean
-            **kwargs: sth else
 
-        Returns:
-            `logits` with shape [B, T, U, vocab]
-        """
         features, predicted = inputs
+        if self.mel_layer is not None:
+            features=self.mel_layer(features)
         enc = self.encoder(features, training=training)
         pred, _ = self.predict_net(predicted, training=training)
         outputs = self.joint_net([enc, pred], training=training)
 
         return outputs
-    #
-
-
-
 
     def add_featurizers(self,
                         text_featurizer: TextFeaturizer):
-        """
-        Function to add featurizer to model to convert to end2end tflite
-        Args:
-            speech_featurizer: SpeechFeaturizer instance
-            text_featurizer: TextFeaturizer instance
-            scorer: external language model scorer
-        """
 
         self.text_featurizer = text_featurizer
 
-    def return_pb_function(self,f,c):
+    def return_pb_function(self,shape):
         @tf.function(experimental_relax_shapes=True, input_signature=[
-            tf.TensorSpec([None, None, f, c], dtype=tf.float32),  # features
+            tf.TensorSpec(shape, dtype=tf.float32),  # features
             tf.TensorSpec([None, 1], dtype=tf.int32),  # features
 
         ])
@@ -207,7 +204,8 @@ class Transducer(tf.keras.Model):
             self.text_featurizer.start * tf.ones([batch, 1], dtype=tf.int32),
             self.predict_net.get_initial_state(features)
         )
-
+        if self.mel_layer is not None:
+            features=self.mel_layer(features)
         enc = self.encoder(features, training=False)  # [B, T, E]
         # enc = tf.squeeze(enc, axis=0)  # [T, E]
         stop_flag = tf.zeros([batch,1 ], tf.float32)
@@ -268,7 +266,11 @@ class Transducer(tf.keras.Model):
         return decoded
 
     def get_config(self):
-        conf = self.encoder.get_config()
+        if self.mel_layer is not None:
+            conf=self.mel_layer.get_config()
+            conf.update(self.encoder.get_config())
+        else:
+            conf = self.encoder.get_config()
         conf.update(self.predict_net.get_config())
         conf.update(self.joint_net.get_config())
         return conf

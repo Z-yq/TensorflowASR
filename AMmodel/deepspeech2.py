@@ -125,13 +125,15 @@ class DeepSpeech2CTC(CtcModel):
                  input_shape: list,
                  arch_config: dict,
                  num_classes: int,
-                 name: str = "deepspeech2"):
+                 name: str = "deepspeech2",
+                 speech_config=dict):
         super(DeepSpeech2CTC, self).__init__(
             encoder=create_ds2(input_shape=input_shape,
                                   arch_config=arch_config,
                                   name=name),
             num_classes=num_classes,
-            name=f"{name}_ctc"
+            name=f"{name}_ctc",
+            speech_config=speech_config
         )
         self.time_reduction_factor = 1
         for s in arch_config["conv_conf"]["conv_strides"]:
@@ -142,7 +144,8 @@ class DeepSpeech2LAS(LAS):
                  input_shape: list,
                  training,
                  name: str = "LAS",
-                 enable_tflite_convertible=False):
+                 enable_tflite_convertible=False,
+                 speech_config=dict):
         config['LAS_decoder'].update({'encoder_dim': config['fc_conf']['fc_units'][-1]})
         decoder_config = LASConfig(**config['LAS_decoder'])
 
@@ -151,6 +154,7 @@ class DeepSpeech2LAS(LAS):
                                   arch_config=config,
                                   name=name),
             config=decoder_config, training=training,enable_tflite_convertible=enable_tflite_convertible,
+            speech_config=speech_config
         )
         self.time_reduction_factor = 1
         for s in config["conv_conf"]["conv_strides"]:
@@ -159,7 +163,8 @@ class DeepSpeech2Transducer(Transducer):
     def __init__(self,
                  input_shape: list,
                  config,
-                 name: str = "deepspeech2"):
+                 name: str = "deepspeech2",
+                 speech_config=dict):
 
         super(DeepSpeech2Transducer, self).__init__(
             encoder=create_ds2(input_shape=input_shape,
@@ -171,7 +176,8 @@ class DeepSpeech2Transducer(Transducer):
             num_lstms=config['Transducer_decoder']['num_lstms'],
             lstm_units=config['Transducer_decoder']['lstm_units'],
             joint_dim=config['Transducer_decoder']['joint_dim'],
-            name=name+'_transducer'
+            name=name+'_transducer',
+            speech_config=speech_config
         )
         self.time_reduction_factor = 1
         for s in  config["conv_conf"]["conv_strides"]:

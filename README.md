@@ -23,6 +23,11 @@ Welcome to use and feedback bugs
 
 ## What's New?
 
+New:
+-  Add Mel Layer `support training`
+-  All Structure add mel layer`It's more like end-to-end,now you can feed wav to model`
+
+Last:
 -  Fix LAS `stop_loss` bug
 -  Change CTC `tf.nn.ctc_loss` to `tf.keras.backend.ctc_batch_cost`
     -   found `tf.nn.ctc_loss` can't play the right role

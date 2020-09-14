@@ -37,10 +37,13 @@ class CTCTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, _, input_length, labels, label_length= batch
+        features, wavs, input_length, labels, label_length= batch
 
         with tf.GradientTape() as tape:
-            y_pred = self.model(features, training=True)
+            if self.model.mel_layer is not None:
+                y_pred=self.model(wavs,training=True)
+            else:
+                y_pred = self.model(features, training=True)
             y_pred=tf.nn.softmax(y_pred,-1)
             tape.watch(y_pred)
 
@@ -66,9 +69,11 @@ class CTCTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
-        features, _, input_length, labels, label_length = batch
-
-        logits = self.model(features, training=False)
+        features, wavs, input_length, labels, label_length = batch
+        if self.model.mel_layer is not None:
+            logits=self.model(wavs,training=False)
+        else:
+            logits = self.model(features, training=False)
         logits=tf.nn.softmax(logits,-1)
         per_eval_loss = tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
                                             tf.cast(logits, tf.float32),
@@ -85,7 +90,10 @@ class CTCTrainer(BaseTrainer):
         f,c=self.speech_featurizer.compute_feature_dim()
         with self.strategy.scope():
             self.model = model
-            self.model._build([1,80,f,c])
+            if self.model.mel_layer is not None:
+                self.model._build([1, 16000, 1])
+            else:
+                self.model._build([1, 80, f, c])
             try:
                 self.load_checkpoint()
             except:

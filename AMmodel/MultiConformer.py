@@ -322,7 +322,7 @@ class ConformerMultiTaskLAS(MultiTaskLAS):
     def __init__(self,
                  config,
                  training=True,
-                 enable_tflite_convertible=False,
+                 enable_tflite_convertible=False,speech_config=dict,
                  ):
         config['LAS_decoder'].update({'encoder_dim':config['dmodel']*3})
         decoder_config=MultiTaskLASConfig(**config['LAS_decoder'])
@@ -339,6 +339,7 @@ class ConformerMultiTaskLAS(MultiTaskLAS):
                 dropout=config['dropout'],
                 name=config['name']
             ),classes1=config['classes1'],classes2=config['classes2'],classes3=config['classes3'],config=decoder_config,training=training,enable_tflite_convertible=enable_tflite_convertible,
+            speech_config=speech_config
 
         )
         self.time_reduction_factor = config['reduction_factor']

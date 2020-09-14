@@ -4,7 +4,7 @@ import pypinyin
 import numpy as np
 from augmentations.augments import Augmentation
 import random
-
+import tensorflow as tf
 import os
 class AM_DataLoader():
 
@@ -354,7 +354,6 @@ class AM_DataLoader():
 
 if __name__ == '__main__':
     from utils.user_config import UserConfig
-    import tensorflow as tf
     config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\conformer.yml')
     config['decoder_config']['model_type']='CTC'
     dg = AM_DataLoader(config)
