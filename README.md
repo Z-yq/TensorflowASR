@@ -26,7 +26,12 @@ Welcome to use and feedback bugs
 New:
 -  Add Mel Layer `support training`
 -  All Structure add mel layer`It's more like end-to-end,now you can feed wav to model`
-
+   - am_data.yml 
+   ```
+   use_mel_layer: True
+   mel_layer_type: Melspectrogram #Melspectrogram
+   trainable_kernel: True #support train model
+   ```
 Last:
 -  Fix LAS `stop_loss` bug
 -  Change CTC `tf.nn.ctc_loss` to `tf.keras.backend.ctc_batch_cost`
