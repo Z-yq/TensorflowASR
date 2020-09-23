@@ -20,6 +20,13 @@ Welcome to use and feedback bugs
 
 
 
+## Pretrained Model
+
+Model Name| link                                          |code
+----------|-----------------------------------------------|----
+MultiTask |pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf
+
+
 
 ## What's New?
 

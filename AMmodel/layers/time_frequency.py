@@ -169,18 +169,18 @@ class Melspectrogram(Spectrogram):
         power_spectrogram = super(Melspectrogram, self).call(x)
 
         if self.image_data_format == 'channels_first':
-            power_spectrogram = K.permute_dimensions(power_spectrogram, [0, 1, 2, 3])
+            pass
         else:
             power_spectrogram = K.permute_dimensions(power_spectrogram, [0, 3, 1, 2])
         output = K.dot(power_spectrogram, self.freq2mel)
         if self.image_data_format == 'channels_first':
-            output = K.permute_dimensions(output, [0, 1, 3, 2])
+           pass
         else:
             output = K.permute_dimensions(output, [0, 2, 3, 1])
         if self.power_melgram != 2.0:
             output = K.pow(K.sqrt(output), self.power_melgram)
-        if self.return_decibel_melgram:
-            output = backend_keras.amplitude_to_decibel(output)
+        # if self.return_decibel_melgram:
+        #     output = backend_keras.amplitude_to_decibel(output)
         return output
 
     def get_config(self):
