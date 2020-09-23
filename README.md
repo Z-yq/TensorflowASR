@@ -22,9 +22,9 @@ Welcome to use and feedback bugs
 
 ## Pretrained Model
 
-Model Name| link                                          |code
-----------|-----------------------------------------------|----
-MultiTask |pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf
+Model Name| link                                          |code|train data        |txt CER|phoneme CER| 
+----------|-----------------------------------------------|----|------------------|-------|-----------|
+MultiTask |pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |
 
 
 
