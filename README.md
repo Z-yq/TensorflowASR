@@ -30,7 +30,19 @@ MultiTask |pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epoc
 
 ## What's New?
 
+
 New:
+
+- correct train and test of the RNN-T Structure.
+        
+        Because of it's decoding way,it should not support batch decode.
+        And more suitable for one2one streaming mode.
+      
+- Remove the wrong way in RNN-T decoding function.
+    
+        
+ 
+Last:
 -  Add Mel Layer `support training`
 -  All Structure add mel layer`It's more like end-to-end,now you can feed wav to model`
    - am_data.yml 
@@ -39,11 +51,6 @@ New:
    mel_layer_type: Melspectrogram #Melspectrogram
    trainable_kernel: True #support train model
    ```
-Last:
--  Fix LAS `stop_loss` bug
--  Change CTC `tf.nn.ctc_loss` to `tf.keras.backend.ctc_batch_cost`
-    -   found `tf.nn.ctc_loss` can't play the right role
-    -   So the blank must be n_classes+1,`blank_at_zero` set False 
 
 
 ## Future

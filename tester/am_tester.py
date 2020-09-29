@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tester.base_tester import BaseTester
 from utils.xer import wer
-import time
+import numpy as np
 
 class AMTester(BaseTester):
     """ Trainer for CTC Models """
@@ -15,17 +15,32 @@ class AMTester(BaseTester):
 
 
     def _eval_step(self, batch):
-        features, _, input_length, labels, label_length = batch
+        features, wavs, input_length, labels, label_length = batch
 
-        pred_decode = self.model.recognize_pb(features,input_length)
+        if self.model.mel_layer is not None:
+            pred_decode = self.model.recognize_pb(wavs, input_length)[0]
+        else:
+            pred_decode = self.model.recognize_pb(features, input_length)[0]
 
-
-        pred_decode=tf.clip_by_value(pred_decode,0,self.text_featurizer.num_classes)[0]
-
+        if 'CTC' in self.model_type:
+            pred_decode=tf.clip_by_value(pred_decode,0,self.text_featurizer.num_classes)
+        elif 'Transducer' in self.model_type:
+            pred_decode_=[]
+            decode_=[]
+            for i in pred_decode:
+                if i==1:
+                    pred_decode_.append(decode_)
+                    decode_=[]
+                elif i==0:
+                    continue
+                else:
+                    decode_.append(i)
+            pred_decode=pred_decode_
 
         for i,j in zip(pred_decode,labels):
-            i=i.numpy().flatten().tolist()
+            i=np.array(i).flatten().tolist()
             j = j.flatten().tolist()
+
             if 'CTC' in self.model_type:
                 while self.text_featurizer.pad in i:
                     i.remove(self.text_featurizer.pad)
@@ -33,14 +48,12 @@ class AMTester(BaseTester):
                 while self.text_featurizer.pad in j:
                     j.remove(self.text_featurizer.pad)
             elif 'Transducer' in self.model_type:
-                if self.text_featurizer.stop in i:
-                    index=i.index(self.text_featurizer.stop)
-                    i=i[1:index]
-                else:
-                    i=i[1:]
-                index=j.index(self.text_featurizer.stop)
+                if self.text_featurizer.pad in j:
+                    index=j.index(self.text_featurizer.pad)
 
-                j=j[1:index]
+                    j=j[1:index]
+                else:
+                    j=j[1:]
             else:
                 if self.text_featurizer.stop in i:
                     index=i.index(self.text_featurizer.stop)

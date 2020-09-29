@@ -25,28 +25,31 @@ class MultiTaskTester(BaseTester):
             "phone_greed_cer": tf.keras.metrics.Mean()
         }
     def _eval_step(self, batch):
-        x, input_length, py_label, txt_label = batch
 
-        final_decode,pred_decode  = self.model.recognize_pb(x, input_length)
+        x, wavs, input_length, py_label, txt_label = batch
+        if self.model.mel_layer is not None:
+            final_decode, pred_decode = self.model.recognize_pb(wavs, input_length)
+        else:
+            final_decode, pred_decode = self.model.recognize_pb(x, input_length)
 
-        pred_decode = tf.clip_by_value(pred_decode, 0, self.text3_featurizer.num_classes)[0]
+        pred_decode = tf.clip_by_value(pred_decode, 0, self.text3_featurizer.num_classes)
 
         for i, j in zip(pred_decode, py_label):
             i = i.numpy().flatten().tolist()
             j = j.flatten().tolist()
 
-            while self.text3_featurizer.pad in i:
+            while 0 in i:
                 i.remove(self.text3_featurizer.pad)
 
             while self.text3_featurizer.pad in j:
                 j.remove(self.text3_featurizer.pad)
 
-        score, ws, wd, wi = wer(i, j)
-        self.p_cer_s += ws
-        self.p_cer_d += wd
-        self.p_cer_i += wi
-        self.eval_metrics["phone_greed_ser"].update_state(0 if i == j else 1)
-        self.eval_metrics["phone_greed_cer"].update_state(score)
+            score, ws, wd, wi = wer(i, j)
+            self.p_cer_s += ws
+            self.p_cer_d += wd
+            self.p_cer_i += wi
+            self.eval_metrics["phone_greed_ser"].update_state(0 if i == j else 1)
+            self.eval_metrics["phone_greed_cer"].update_state(score)
 
         for i, j in zip(final_decode, txt_label):
             i = i.numpy().flatten().tolist()
@@ -58,12 +61,12 @@ class MultiTaskTester(BaseTester):
             index = j.index(self.text4_featurizer.stop)
             j = j[:index]
 
-        score, ws, wd, wi = wer(i, j)
-        self.cer_s += ws
-        self.cer_d += wd
-        self.cer_i += wi
-        self.eval_metrics["greed_ser"].update_state(0 if i == j else 1)
-        self.eval_metrics["greed_cer"].update_state(score)
+            score, ws, wd, wi = wer(i, j)
+            self.cer_s += ws
+            self.cer_d += wd
+            self.cer_i += wi
+            self.eval_metrics["greed_ser"].update_state(0 if i == j else 1)
+            self.eval_metrics["greed_cer"].update_state(score)
 
 
     def compile(self, model: tf.keras.Model):

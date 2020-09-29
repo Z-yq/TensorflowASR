@@ -13,8 +13,8 @@ class AM_Tester():
 
         self.am = AM(config)
         self.am.load_model(training=False)
-        f,c=self.am.speech_feature.compute_feature_dim()
-        self.am.model.return_pb_function(f,c)
+
+
         if self.am.model_type!='MultiTask':
             self.dg = AM_DataLoader(config,training=False)
             self.runner = am_tester.AMTester(self.config['running_config'], self.dg.text_featurizer)

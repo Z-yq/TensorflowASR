@@ -109,11 +109,11 @@ class TextFeaturizer:
         elif self.decoder_config['model_type']=='LAS':
             feats = [self.token_to_index[token] for token in tokens] + [self.stop]
         else:
-            feats=[self.start]+[self.token_to_index[token] for token in tokens]+[self.stop]
+            feats=[self.start]+[self.token_to_index[token] for token in tokens]
         return feats
 
     @tf.function
-    def iextract(self, feat: tf.Tensor) -> tf.Tensor:
+    def iextract(self, feat):
         """
         Args:
             feat: tf.Tensor with dim [B, None]
