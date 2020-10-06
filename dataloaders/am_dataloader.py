@@ -169,11 +169,11 @@ class AM_DataLoader():
                 continue
             if len(data) < 400:
                 continue
-            elif len(data) > self.speech_featurizer.sample_rate * 7:
+            elif len(data) > self.speech_featurizer.sample_rate *  self.speech_config['wav_max_duration']:
                 continue
-
-            if not self.only_chinese(txt):
-                continue
+            if self.speech_config['only_chinese']:
+                if not self.only_chinese(txt):
+                    continue
             speech_feature = self.speech_featurizer.extract(data)
             max_input = max(max_input, speech_feature.shape[0])
 
@@ -266,11 +266,12 @@ class AM_DataLoader():
                 continue
             if len(data) < 400:
                 continue
-            elif len(data) > self.speech_featurizer.sample_rate * 7:
+            elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
                 continue
 
-            if not self.only_chinese(txt):
-                continue
+            if self.speech_config['only_chinese']:
+                if not self.only_chinese(txt):
+                    continue
             speech_feature = self.speech_featurizer.extract(data)
             max_input = max(max_input, speech_feature.shape[0])
 
@@ -298,11 +299,12 @@ class AM_DataLoader():
                     continue
                 if len(data) < 400:
                     continue
-                elif len(data) > self.speech_featurizer.sample_rate * 7:
+                elif len(data) > self.speech_featurizer.sample_rate *  self.speech_config['wav_max_duration']:
                     continue
 
-                if not self.only_chinese(txt):
-                    continue
+                if self.speech_config['only_chinese']:
+                    if not self.only_chinese(txt):
+                        continue
                 data=self.augment.process(data)
                 speech_feature = self.speech_featurizer.extract(data)
                 max_input = max(max_input, speech_feature.shape[0])
@@ -345,6 +347,8 @@ class AM_DataLoader():
     def generator(self,train=True):
         while 1:
             x, wavs, input_length, labels, label_length=self.generate(train)
+            if x.shape[0]==0:
+                continue
             if self.LAS:
                 guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
                                                      label_length.max())
