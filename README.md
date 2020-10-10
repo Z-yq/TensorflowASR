@@ -278,3 +278,18 @@ LM Speed Test,12 word on **CPU**:
 |O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
 |-------------------|-----------|---------------|
 |              100ms|       20ms|          300ms|
+
+
+## References
+
+Thanks for follows:
+
+
+https://github.com/usimarit/TiramisuASR `modify from it`
+
+https://github.com/noahchalifour/warp-transducer
+
+https://github.com/PaddlePaddle/DeepSpeech
+
+https://github.com/baidu-research/warp-ctc
+
