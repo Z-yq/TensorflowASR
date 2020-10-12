@@ -22,9 +22,11 @@ Welcome to use and feedback bugs
 
 ## Pretrained Model
 
-Model Name| link                                          |code|train data        |txt CER|phoneme CER| 
-----------|-----------------------------------------------|----|------------------|-------|-----------|
-MultiTask |pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |
+Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |txt CER|phoneme CER|Model Size|
+----------|--------------------|-----------------------------------------------|----|------------------|-------|-----------|---------|
+MultiTask |False/False|pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |109M|
+ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2(10 epochs)|-|9.7|61M|
+
 
 
 
