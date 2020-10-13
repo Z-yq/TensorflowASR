@@ -22,12 +22,21 @@ Welcome to use and feedback bugs
 
 ## Pretrained Model
 
+All test on _`AISHELL TEST`_ datasets.
+
+**AM:**
+
 Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |txt CER|phoneme CER|Model Size|
 ----------|--------------------|-----------------------------------------------|----|------------------|-------|-----------|---------|
 MultiTask |False/False|pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |109M|
 ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2(10 epochs)|-|9.7|61M|
 
 
+**LM:**
+
+Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|
+---------|----|------|----|-------|------|----------|-----------|
+TransformerO2OE|True(No)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell2 text(98k steps)|4.4%|200M|52M|
 
 
 ## What's New?
