@@ -36,24 +36,26 @@ ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2
 
 Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|
 ---------|----|------|----|-------|------|----------|-----------|
-TransformerO2OE|True(No)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell2 text(98k steps)|4.4%|200M|52M|
-
+TransformerO2OE|True(False)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell2 text(98k steps)|4.4|200M|52M|
+TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|
+Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|
 
 ## What's New?
 
 
 New:
 
+- fix LM some bugs
+    
+        
+ 
+Last:
 - correct train and test of the RNN-T Structure.
         
         Because of it's decoding way,it should not support batch decode.
         And more suitable for one2one streaming mode.
       
 - Remove the wrong way in RNN-T decoding function.
-    
-        
- 
-Last:
 -  Add Mel Layer `support training`
 -  All Structure add mel layer`It's more like end-to-end,now you can feed wav to model`
    - am_data.yml 

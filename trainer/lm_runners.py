@@ -42,7 +42,7 @@ class LMTrainer(BaseTrainer):
     def _train_step(self, batch):
         inp, tar, feature= batch
         if self.one2one:
-            tar_inp = tar
+            tar_inp = inp
             tar_real = tar
         else:
             tar_inp = tar[:, :-1]
@@ -79,7 +79,7 @@ class LMTrainer(BaseTrainer):
     def _eval_step(self, batch):
         inp, tar, feature = batch
         if self.one2one:
-            tar_inp = tar
+            tar_inp = inp
             tar_real = tar
         else:
             tar_inp = tar[:, :-1]

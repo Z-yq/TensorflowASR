@@ -25,7 +25,7 @@ def positional_encoding(position, d_model):
 
 def create_padding_mask(seq):
     seq_pad = tf.cast(tf.equal(seq, 0), tf.float32)
-    # seq_pad = tf.clip_by_value(seq,0.,1.)
+    # seq_pad = tf.clip_by_value(seq_pad,0.,1.)
 
     # add extra dimensions to add the padding
     # to the attention logits.
@@ -310,7 +310,11 @@ class Transformer(tf.keras.Model):
         self.to_bert_embedding_projecter=tf.keras.layers.Dense(768)
         self.to_hidden_state=tf.keras.layers.Dense(d_model)
         if not (one2one and not include_decoder):
-            self.decoder = Decoder(num_layers - 1, d_model, dec_embedding_dim,num_heads, dff,
+            if one2one:
+                self.decoder = Decoder(num_layers - 1, d_model, dec_embedding_dim, num_heads, dff,
+                                       input_vocab_size, pe_target, rate)
+            else:
+                self.decoder = Decoder(num_layers - 1, d_model, dec_embedding_dim,num_heads, dff,
                                    target_vocab_size, pe_target, rate)
             self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
                                for _ in range(max(num_layers - 1, 1))]
@@ -329,8 +333,10 @@ class Transformer(tf.keras.Model):
         y = tf.ones([1,64],tf.int32)
 
         if not (self.one2one and not self.include_decoder):
+
             self(x, y)
         else:
+
             self(x)
 
     def decoder_part(self, enc_output,tar=None, training=False):
@@ -370,9 +376,8 @@ class Transformer(tf.keras.Model):
             enc_padding_mask,look_ahead_mask,dec_padding_mask=create_masks(inp, tar)
             self.set_masks(enc_padding_mask, look_ahead_mask, dec_padding_mask)
         else:
-            enc_padding_mask=create_padding_mask(inp)
-            self.encoder.mask=enc_padding_mask
-
+            enc_padding_mask = create_padding_mask(inp)
+            self.encoder.mask = enc_padding_mask
         enc_output = self.encoder(inp,training=training)  # (batch_size, inp_seq_len, d_model)
         return self.decoder_part(enc_output, tar,training=training)
 
@@ -381,11 +386,8 @@ class Transformer(tf.keras.Model):
             tf.TensorSpec([None,None], dtype=tf.int32),
         ])
     def inference(self, inputs):
-        self.set_masks(None,None,None)
         if self.one2one:
 
-            enc_padding_mask = create_padding_mask(inputs)
-            self.set_masks(enc_padding_mask,None,enc_padding_mask)
             out,_=self.call(inputs,inputs)
             out=tf.argmax(out,-1,tf.int32)
             return out
@@ -395,15 +397,15 @@ class Transformer(tf.keras.Model):
             decoded = tf.cast(tf.ones([batch,1])*self.start_id,tf.int32)
             b_i = 0
             B = tf.shape(inputs)[1] + 1
-            self.encoder.mask=enc_padding_mask
+            self.set_masks(enc_padding_mask, None, None)
             enc_output = self.encoder(inputs, False)
             stop_flag=tf.zeros([batch],tf.float32)
             def _cond(b_i, B,stop_flag, decoded):
                 return tf.less(b_i, B)
 
             def _body(b_i, B,stop_flag, decoded):
-
-
+                enc_padding_mask, look_ahead_mask, dec_padding_mask = create_masks(inputs, decoded)
+                self.set_masks(enc_padding_mask, look_ahead_mask,dec_padding_mask)
                 yseq, _ = self.decoder_part(enc_output, decoded)
                 yseq = tf.argmax(yseq[:, -1], -1, tf.int32)
 
@@ -434,5 +436,21 @@ class Transformer(tf.keras.Model):
             return decoded
 
 
-
+if __name__ == '__main__':
+    from utils.user_config import UserConfig
+    from utils.text_featurizers import TextFeaturizer
+    import time
+    config = UserConfig(r'D:\TF2-ASR\configs\lm_data.yml', r'D:\TF2-ASR\configs\transformer.yml')
+    vocab_featurizer = TextFeaturizer(config['lm_vocab'])
+    word_featurizer = TextFeaturizer(config['lm_word'])
+    model_config = config['model_config']
+    model_config.update(
+        {'input_vocab_size': vocab_featurizer.num_classes, 'target_vocab_size': word_featurizer.num_classes})
+    model = Transformer(**model_config)
+    model._build()
+    model.recognize(np.ones([2, 10]))
+    s=time.time()
+    c=model.recognize(np.ones([2,10]))
+    e=time.time()
+    print(c,e-s)
 
