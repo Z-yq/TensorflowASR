@@ -165,10 +165,14 @@ class AM():
             data/=32768
         else:
             data = self.speech_feature.load_wav(fp)
+        if self.model.mel_layer is None:
+            mel=self.speech_feature.extract(data)
+            mel=np.expand_dims(mel,0)
 
-        mel=self.speech_feature.extract(data)
-        mel=np.expand_dims(mel,0)
-        input_length=np.array([[mel.shape[1]//self.model.time_reduction_factor]],'int32')
+            input_length=np.array([[mel.shape[1]//self.model.time_reduction_factor]],'int32')
+        else:
+            mel=data.reshape([1,-1,1])
+            input_length = np.array([[mel.shape[1] // self.model.time_reduction_factor//160]], 'int32')
         result=self.model.recognize_pb(mel,input_length)[0]
 
         return result
