@@ -373,6 +373,8 @@ class Transformer(tf.keras.Model):
 
     def call(self,inp, tar=None,training=False):
         if not (self.one2one and not self.include_decoder):
+            if tar is None:#for convert to pb
+                tar=inp
             enc_padding_mask,look_ahead_mask,dec_padding_mask=create_masks(inp, tar)
             self.set_masks(enc_padding_mask, look_ahead_mask, dec_padding_mask)
         else:
@@ -436,21 +438,5 @@ class Transformer(tf.keras.Model):
             return decoded
 
 
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
-    from utils.text_featurizers import TextFeaturizer
-    import time
-    config = UserConfig(r'D:\TF2-ASR\configs\lm_data.yml', r'D:\TF2-ASR\configs\transformer.yml')
-    vocab_featurizer = TextFeaturizer(config['lm_vocab'])
-    word_featurizer = TextFeaturizer(config['lm_word'])
-    model_config = config['model_config']
-    model_config.update(
-        {'input_vocab_size': vocab_featurizer.num_classes, 'target_vocab_size': word_featurizer.num_classes})
-    model = Transformer(**model_config)
-    model._build()
-    model.recognize(np.ones([2, 10]))
-    s=time.time()
-    c=model.recognize(np.ones([2,10]))
-    e=time.time()
-    print(c,e-s)
+
 
