@@ -46,7 +46,8 @@ Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 tex
 
 New:
 
-- fix LM some bugs
+- Change RNNT predict to support C++
+- Add C++ Inference Demo,detail in cppinference
     
         
  
@@ -147,14 +148,14 @@ Last:
     lm.load_model()
     
     am_result=am.predict(wav_path)
-    if self.am.model_type=='Transducer':
-        am_result =self.decode_am_result(am_result[1:-1])
-        lm_result = self.lm.predict(am_result)
-        lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
+    if am.model_type=='Transducer':
+        am_result =am.decode(am_result[1:-1])
+        lm_result = lm.predict(am_result)
+        lm_result = lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
     else:
-        am_result=self.decode_am_result(am_result[0])
-        lm_result=self.lm.predict(am_result)
-        lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
+        am_result=am.decode(am_result[0])
+        lm_result=lm.predict(am_result)
+        lm_result = lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
    
     ```
 Use **Tester** to test your model:
