@@ -47,7 +47,7 @@ Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 tex
 New:
 
 - Change RNNT predict to support C++
-- Add C++ Inference Demo,detail in cppinference
+- Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
     
         
  
