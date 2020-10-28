@@ -51,7 +51,7 @@ int main()
 	
 	// Do AM  session run
 	
-	am_out =am.DoInference(wav_in, length_in);
+	TFTensor<int32_t> am_out =am.DoInference(wav_in, length_in);
 
 	//get am result to string
 	//here 'blank_at_zero=False' in am_data.yml

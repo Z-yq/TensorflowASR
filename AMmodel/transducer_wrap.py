@@ -148,7 +148,7 @@ class Transducer(tf.keras.Model):
     def _build(self, sample_shape):  # Call on real data for building model
         features = tf.random.normal(shape=sample_shape)
         predicted = tf.constant([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
-        return self(features, predicted, training=True)
+        return self([features, predicted], training=True)
 
     def save_seperate(self, path_to_dir: str):
         self.encoder.save(os.path.join(path_to_dir, "encoder"))
@@ -162,9 +162,8 @@ class Transducer(tf.keras.Model):
         super(Transducer, self).summary(line_length=line_length, **kwargs)
 
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, features, predicted=None, training=False):
-        if predicted is None:
-            predicted = tf.constant([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+    def call(self,inputs, training=False):
+        features, predicted=inputs
 
         if self.mel_layer is not None:
             features = self.mel_layer(features)

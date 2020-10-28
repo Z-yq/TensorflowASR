@@ -27,7 +27,7 @@ TFTensor<int32_t> AM::DoInference(const std::vector<float>& InWav, const std::ve
 	Tensor input_wavs{ Mdl,"serving_default_features" };
 	std::vector<int64_t> InputWavShape = { 1, (int64_t)InWav.size(),1 };
 	input_wavs.set_data(InWav, InputWavShape);
-	Tensor input_length{ Mdl,"serving_default_length" };
+	Tensor input_length{ Mdl,"serving_default_lengths" };
 	std::vector<int64_t> InputLengthShape = { 1, 1 };
 	input_length.set_data(InputLength, InputLengthShape);
 	
