@@ -20,6 +20,7 @@ Welcome to use and feedback bugs
 
 
 
+
 ## Pretrained Model
 
 All test on _`AISHELL TEST`_ datasets.
@@ -31,7 +32,7 @@ Model Name|Mel layer(USE/TRAIN)| link                                          |
 MultiTask |False/False|pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |109M|
 ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2(10 epochs)|-|9.7|61M|
 ConformerCTC(S)|True/True|pan.baidu.com/s/1sh2bUm1HciE6Fu7PHUfRGA|jntv|aishell2(10 epochs)|-|9.9|46M|
-
+ConformerCTC2(S)|True/False|pan.baidu.com/s/12hsjq-lWudeaQzQomV-PDw|ifm6|aishell2(10 epochs)|-|8.1|46M|
 
 **LM:**
 
@@ -315,3 +316,12 @@ https://github.com/PaddlePaddle/DeepSpeech
 
 https://github.com/baidu-research/warp-ctc
 
+## Licence
+
+允许并感谢您使用本项目进行学术研究、商业产品生产等，但禁止将本项目作为商品进行交易。
+
+Overall, Almost models here are licensed under the Apache 2.0 for all countries in the world.
+
+Allow and thank you for using this project for academic research, commercial product production, allowing unrestricted commercial and non-commercial use alike. 
+
+However, it is prohibited to trade this project as a commodity.
