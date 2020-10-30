@@ -595,12 +595,12 @@ class LAS(tf.keras.Model):
             targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]*batch)
             targets = targets[:, :, np.newaxis]
             targets_lengths = np.array([9]*batch)
-            self(inputs,input_lengths,
+            self([inputs,input_lengths],
                  targets,targets_lengths)
         else:
             self(
-                inputs,
-                input_lengths,
+                [inputs,
+                input_lengths],
 
                 training=training,
             )
@@ -617,7 +617,7 @@ class LAS(tf.keras.Model):
     # @tf.function(experimental_relax_shapes=True)
     def call(
             self,
-            inputs, input_lengths,
+            inputs,
             targets=None,
             targets_lengths=None,
             use_window_mask=False,
@@ -628,6 +628,7 @@ class LAS(tf.keras.Model):
         """Call logic."""
         # Encoder Step.
         # input_lengths=tf.squeeze(input_lengths,-1)
+        inputs, input_lengths=inputs
         if self.mel_layer is not None:
             inputs=self.mel_layer(inputs)
         
@@ -700,51 +701,50 @@ class LAS(tf.keras.Model):
 
             # Encoder Step.
             input_lengths=tf.squeeze(input_lengths,-1)
-            with tf.name_scope('inference'):
 
-                if self.mel_layer is not None:
-                    inputs=self.mel_layer(inputs)
-                encoder_hidden_states = self.encoder.call(
-                    inputs, training=False
-                )
-                batch_size = tf.shape(encoder_hidden_states)[0]
-                alignment_size = tf.shape(encoder_hidden_states)[1]
+            if self.mel_layer is not None:
+                inputs=self.mel_layer(inputs)
+            encoder_hidden_states = self.encoder.call(
+                inputs, training=False
+            )
+            batch_size = tf.shape(encoder_hidden_states)[0]
+            alignment_size = tf.shape(encoder_hidden_states)[1]
 
-                # Setup some initial placeholders for decoder step. Include:
-                # 1. batch_size for inference.
-                # 2. alignment_size for attention size.
-                # 3. initial state for decoder cell.
-                # 4. memory (encoder hidden state) for attention mechanism.
-                # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
-                self.decoder.sampler.set_batch_size(batch_size)
-                self.decoder.cell.set_alignment_size(alignment_size)
-                # self.setup_maximum_iterations(alignment_size)
-                self.decoder.setup_decoder_init_state(
-                    self.decoder.cell.get_initial_state(batch_size)
+            # Setup some initial placeholders for decoder step. Include:
+            # 1. batch_size for inference.
+            # 2. alignment_size for attention size.
+            # 3. initial state for decoder cell.
+            # 4. memory (encoder hidden state) for attention mechanism.
+            # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
+            self.decoder.sampler.set_batch_size(batch_size)
+            self.decoder.cell.set_alignment_size(alignment_size)
+            # self.setup_maximum_iterations(alignment_size)
+            self.decoder.setup_decoder_init_state(
+                self.decoder.cell.get_initial_state(batch_size)
+            )
+            self.decoder.cell.attention_layer.setup_memory(
+                memory=encoder_hidden_states,
+                memory_sequence_length=input_lengths,  # use for mask attention.
+            )
+            if self.use_window_mask:
+                self.decoder.cell.attention_layer.setup_window(
+                    win_front=self.win_front, win_back=self.win_back
                 )
-                self.decoder.cell.attention_layer.setup_memory(
-                    memory=encoder_hidden_states,
-                    memory_sequence_length=input_lengths,  # use for mask attention.
-                )
-                if self.use_window_mask:
-                    self.decoder.cell.attention_layer.setup_window(
-                        win_front=self.win_front, win_back=self.win_back
-                    )
 
-                (
-                    (classes_prediction, stop_token_prediction, _),
-                    final_decoder_state,
-                    _,
-                ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
+            (
+                (classes_prediction, stop_token_prediction, _),
+                final_decoder_state,
+                _,
+            ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
 
-                decoder_output = tf.reshape(
-                    classes_prediction, [batch_size, -1, self.config.n_classes]
-                )
-                stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
+            decoder_output = tf.reshape(
+                classes_prediction, [batch_size, -1, self.config.n_classes]
+            )
+            stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
 
-                alignment_history = tf.transpose(
-                    final_decoder_state.alignment_history.stack(), [1, 2, 0]
-                )
+            alignment_history = tf.transpose(
+                final_decoder_state.alignment_history.stack(), [1, 2, 0]
+            )
             decoder_output=tf.argmax(decoder_output,-1)
             return [decoder_output]
         self.recognize_pb=inference

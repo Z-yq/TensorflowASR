@@ -52,14 +52,14 @@ class LASTrainer(BaseTrainer):
         self.model.maxinum_iterations = max_iter
         with tf.GradientTape() as tape:
             if self.model.mel_layer is not None:
-                y_pred, stop_token_pred, aligments = self.model(wavs,
-                                                                input_length,
+                y_pred, stop_token_pred, aligments = self.model([wavs,
+                                                                input_length],
                                                                 tf.expand_dims(labels, -1),
                                                                 label_length,
                                                                 training=True)
             else:
-                y_pred, stop_token_pred, aligments = self.model(features,
-                                                                input_length,
+                y_pred, stop_token_pred, aligments = self.model([features,
+                                                                input_length],
                                                                 tf.expand_dims(labels, -1),
                                                                 label_length,
                                                                 training=True)
@@ -100,14 +100,14 @@ class LASTrainer(BaseTrainer):
         max_iter = tf.shape(labels)[1]
         self.model.maxinum_iterations=max_iter
         if self.model.mel_layer is not None:
-            y_pred, stop_token_pred, aligments = self.model(wavs,
-                                                            input_length,
+            y_pred, stop_token_pred, aligments = self.model([wavs,
+                                                            input_length],
                                                             tf.expand_dims(labels, -1),
                                                             label_length,
                                                             training=False)
         else:
-            y_pred, stop_token_pred, aligments = self.model(features,
-                                                        input_length,
+            y_pred, stop_token_pred, aligments = self.model([features,
+                                                        input_length],
                                                         tf.expand_dims(labels, -1),
                                                         label_length,
                                                          training=False)
