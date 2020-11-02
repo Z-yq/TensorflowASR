@@ -18,9 +18,24 @@ Now the project is still in the development stages
 Welcome to use and feedback bugs
 </p>
 
+## Mel Layer
 
+Provides a feature extraction layer using tensorflow to reference librosa for end-to-end integration with other platforms.
 
+Using it:
+- am_data.yml 
+   ```
+   use_mel_layer: True
+   mel_layer_type: Melspectrogram #Spectrogram
+   trainable_kernel: True #support train model,not recommend
+   ```
 
+## Cpp Inference
+A call example for C++ is provided.
+
+Demo for TensorflowC 2.3.0
+
+detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
 ## Pretrained Model
 
 All test on _`AISHELL TEST`_ datasets.
@@ -33,6 +48,7 @@ MultiTask |False/False|pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aish
 ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2(10 epochs)|-|9.7|61M|
 ConformerCTC(S)|True/True|pan.baidu.com/s/1sh2bUm1HciE6Fu7PHUfRGA|jntv|aishell2(10 epochs)|-|9.9|46M|
 ConformerCTC2(S)|True/False|pan.baidu.com/s/12hsjq-lWudeaQzQomV-PDw|ifm6|aishell2(10 epochs)|-|8.1|46M|
+ConformerCTC3(S)|False/False|pan.baidu.com/s/1zKDgMHfpOhw10pOSWmtLrQ|gmr5|aishell2(10 epochs)|-|7.0|46M|
 
 **LM:**
 
@@ -42,36 +58,29 @@ TransformerO2OE|True(False)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell
 TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|
 Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|
 
-## What's New?
+**Speed:**
 
+AM Speed Test(Python), a ~4.1 seconds wav on **CPU**:
+
+|CTC    |Transducer|LAS  |
+|-------|----------|-----|
+|150ms  |350ms     |280ms|
+
+LM Speed Test(Python),12 words on **CPU**:
+
+|O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
+|-------------------|-----------|---------------|
+|              100ms|       20ms|          300ms|
+
+
+
+## What's New?
 
 New:
 
 - Change RNNT predict to support C++
 - Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
     
-        
- 
-Last:
-- correct train and test of the RNN-T Structure.
-        
-        Because of it's decoding way,it should not support batch decode.
-        And more suitable for one2one streaming mode.
-      
-- Remove the wrong way in RNN-T decoding function.
--  Add Mel Layer `support training`
--  All Structure add mel layer`It's more like end-to-end,now you can feed wav to model`
-   - am_data.yml 
-   ```
-   use_mel_layer: True
-   mel_layer_type: Melspectrogram #Melspectrogram
-   trainable_kernel: True #support train model
-   ```
-
-
-## Future
--  pre-train model
--  Fix bugs
 
 ## Supported Structure
 -  **CTC**
@@ -262,45 +271,7 @@ Don't forget that the token list start with **_`S`_** and **_`/S`_**,e.g:
         shì
         ……
 
-## Performerce
 
-The test data are aishell's test dataset and dev dataset.
-
-Am takes the  Pinyin phoneme as the final result and use _**CER (character error rate)**_ to test.
-
-LM is based on Chinese characters ,and use **_CER_** too.
-
-After 10 epochs:
-
-AM:
-
-|Test   |Dev   |
-|-------|------|
-|4.1%   |3.26% |
-
-LM:
-
-|Test   |Dev   |
-|-------|------|
-|3.12%  |3.16% |
-
-AM-LM:
-
-|Test   |Dev   |
-|-------|------|
-|8.42%  |7.36% |
-
-AM Speed Test,use a ~4.1 seconds wav on **CPU**:
-
-|CTC    |Transducer|LAS  |
-|-------|----------|-----|
-|150ms  |350ms     |280ms|
-
-LM Speed Test,12 word on **CPU**:
-
-|O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
-|-------------------|-----------|---------------|
-|              100ms|       20ms|          300ms|
 
 
 ## References
