@@ -42,7 +42,7 @@ decoder1_config:
   beam_width: 1
 decoder2_config:
   vocabulary: '.\configs\dict\phone.txt'
-  blank_at_zero: Fasle
+  blank_at_zero: False
   beam_width: 1
 decoder3_config:
   vocabulary: '.\configs\dict\pinyin.txt'
