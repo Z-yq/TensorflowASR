@@ -76,7 +76,8 @@ LM Speed Test(Python),12 words on **CPU**:
 ## Community
 welcome to join 
 
-![weixin]("https://github.com/Z-yq/TensorflowASR/community.jpg")
+<img width="500" height="300" src="https://github.com/Z-yq/TensorflowASR/community.jpg"/>
+
 
 ## What's New?
 
