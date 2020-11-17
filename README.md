@@ -73,6 +73,10 @@ LM Speed Test(Python),12 words on **CPU**:
 |              100ms|       20ms|          300ms|
 
 
+## Community
+welcome to join 
+
+![weixin]("https://github.com/Z-yq/TensorflowASR/community.jpg")
 
 ## What's New?
 
