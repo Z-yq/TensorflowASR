@@ -18,6 +18,8 @@ Now the project is still in the development stages
 Welcome to use and feedback bugs
 </p>
 
+#English|[中文版](https://github.com/Z-yq/TensorflowASR/README_ch.md)
+
 ## Mel Layer
 
 Provides a feature extraction layer using tensorflow to reference librosa for end-to-end integration with other platforms.
