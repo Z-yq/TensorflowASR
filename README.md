@@ -18,7 +18,8 @@ Now the project is still in the development stages
 Welcome to use and feedback bugs
 </p>
 
-#English|[中文版](https://github.com/Z-yq/TensorflowASR/README_ch.md)
+
+###English|[中文版](https://github.com/Z-yq/TensorflowASR/blob/master/README_ch.md)
 
 ## Mel Layer
 

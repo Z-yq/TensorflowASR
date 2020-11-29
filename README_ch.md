@@ -18,7 +18,8 @@
 欢迎使用并反馈bug
 </p>
 
-#[English](https://github.com/Z-yq/TensorflowASR/README.md)|中文版
+
+###[English](https://github.com/Z-yq/TensorflowASR/)|中文版
 
 ## Mel Layer
 
