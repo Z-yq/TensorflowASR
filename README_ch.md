@@ -80,7 +80,7 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
 
 下载预训练模型，修改 am_data.yml/lm_data.yml 里的目录参数（running_config下的outdir参数），并在修改后的目录中添加 checkpoints 目录，
 
-将model.h5文件放入对应的checkpoints目录中，
+将model_xx.h5(xx为数字)文件放入对应的checkpoints目录中，
 
 修改run-test.py中的读取的config文件（am_data.yml,model.yml）路径，运行run-test.py即可。
 
