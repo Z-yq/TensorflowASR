@@ -6,26 +6,27 @@
 </p>
 </h1>
 <h2 align="center">
-<p>集成了Tensorflow 2版本的端到端语音识别模型</p>
+<p>State-of-the-art Automatic Speech Recognition in Tensorflow 2</p>
 </h2>
 <p align="center">
-目前集成了中文的CTC\Transducer\LAS 三种结构
+CTC\Transducer\LAS Default is Chinese ASR
 </p>
 <p align="center">
-当前还在开发阶段
+Now the project is still in the development stages
 </p>
 <p align="center">
-欢迎使用并反馈bug
+Welcome to use and feedback bugs
+
+English|[中文版](https://github.com/Z-yq/TensorflowASR/)
 </p>
 
 
-###[English](https://github.com/Z-yq/TensorflowASR/)|中文版
 
 ## Mel Layer
 
-参照librosa库，用TF2实现了语音频谱特征提取的层，这样在跨平台部署时会更加容易。
+Provides a feature extraction layer using tensorflow to reference librosa for end-to-end integration with other platforms.
 
-使用:
+Using it:
 - am_data.yml 
    ```
    use_mel_layer: True
@@ -34,14 +35,14 @@
    ```
 
 ## Cpp Inference
-C++的demo已经提供。
+A call example for C++ is provided.
 
-测试于TensorflowC 2.3.0版本
+Demo for TensorflowC 2.3.0
 
-详细见目录 [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
+detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
 ## Pretrained Model
 
-所有结果测试于 _`AISHELL TEST`_ 数据集.
+All test on _`AISHELL TEST`_ datasets.
 
 **AM:**
 
@@ -60,40 +61,31 @@ Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|
 TransformerO2OE|True(False)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell2 text(98k steps)|4.4|200M|52M|
 TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|
 Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|
-TransformerPunc|False(True)|pan.baidu.com/s/1umwMP2nIzr25NnvG3LTRvw|7ctd|翻译文本|-|76M|30M|
-
+TransformerPunc|False(True)|pan.baidu.com/s/1umwMP2nIzr25NnvG3LTRvw|7ctd|translation task texts|-|76M|30M|
 **Speed:**
 
-AM 速度测试(基于Python), 一条约4.1秒的音频 **CPU**响应速度为:
+AM Speed Test(Python), a ~4.1 seconds wav on **CPU**:
 
 |CTC    |Transducer|LAS  |
 |-------|----------|-----|
 |150ms  |350ms     |280ms|
 
-LM 速度测试(基于Python),12个字的响应速度 **CPU**:
+LM Speed Test(Python),12 words on **CPU**:
 
 |O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
 |-------------------|-----------|---------------|
 |              100ms|       20ms|          300ms|
 
-**快速使用：**
-
-下载预训练模型，修改 am_data.yml/lm_data.yml 里的目录参数（running_config下的outdir参数），并在修改后的目录中添加 checkpoints 目录，
-
-将model_xx.h5(xx为数字)文件放入对应的checkpoints目录中，
-
-修改run-test.py中的读取的config文件（am_data.yml,model.yml）路径，运行run-test.py即可。
-
 
 ## Community
-欢迎加入，讨论和分享问题。
+welcome to join 
 
 <img width="300" height="300" src="./community.jpg">
 
 
 ## What's New?
 
-最新更新
+New:
 
 - Change RNNT predict to support C++
 - Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
@@ -110,11 +102,11 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
 -   **Conformer** 
 -   **ESPNet**:`Efficient Spatial Pyramid of Dilated Convolutions`
 -   **DeepSpeech2**
--   **Transformer**` 拼音->汉字` 
-       -  O2O-Encoder-Decoder `完整的transformer结构，拼音与汉字一一对应的形式
+-   **Transformer**` Pinyin to Chinese characters` 
+       -  O2O-Encoder-Decoder `Complete transformer,and one to one relationship between phoneme and target
 ,e.g.: pin4 yin4-> 拼音`
-       -  O2O-Encoder `不含decoder部分的结构`
-       -  Encoder-Decoder `经典的transformer结构`
+       -  O2O-Encoder `Not contain the decoder part,others are same.`
+       -  Encoder-Decoder `Typic transformer`
 
 
 ## Requirements
@@ -132,9 +124,9 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
 
 ## Usage
 
-1. 准备train_list.
+1. Prepare train_list.
 
-    **am_train_list** 格式，其中'\t'为tap:
+    **am_train_list** format:
 
     ```text
     file_path1 \t text1
@@ -142,24 +134,24 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
     ……
     ```
 
-    **lm_train_list** 格式:
+    **lm_train_list** format:
     ```text
     text1
     text2
     ……
     ```
-2. 下载bert的预训练模型，用于LM的辅助训练，如果你不需要LM可以跳过:
+2. Down the bert model for LM training,if you don't need LM can skip this Step:
             
         https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA extraction code: 4hsa
         
-3. 修改配置文件 **_`am_data.yml`_** (in ./configs)来设置一些训练的选项，以及修改**model yaml**（如：./configs/conformer.yml） 里的`name`参数来选择模型结构。
-4. 然后执行命令:
+3. Modify the **_`am_data.yml`_** (in ./configs),set running params.Modify the `name` in **model yaml** to choose the structure.
+4. Just run:
   
      ```shell
     python train_am.py --data_config ./configs/am_data.yml --model_config ./configs/conformer.yml
     ```
   
-5. 想要测试时，可以参考 **_`run-test.py`_** 里写的demo,当然你可以修改 **_`predict`_** 方法来适应你的需求:
+5. To Test,you can follow in **_`run-test.py`_**,addition,you can modify the **_`predict`_** function to meet your needs:
      ```python
     from utils.user_config import UserConfig
     from AMmodel.model import AM
@@ -185,19 +177,18 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
         lm_result = lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
    
     ```
-也可以使用**Tester** 来大批量测试数据验证你的模型性能:
+Use **Tester** to test your model:
+Fisrt modify the `eval_list`  in _`am_data.yml/lm_data.yml`_
 
-第一步需要修改 _`am_data.yml/lm_data.yml`_ 里的 `eval_list` ，格式与  `train_list` 相同
-
-然后执行:
+Then:
 ```shell
 python eval_am.py --data_config ./configs/am_data.yml --model_config ./configs/conformer.yml
 ```
-该脚本将展示 **SER/CER/DEL/INS/SUB**  几项指标
+Tester will show **SER/CER/DEL/INS/SUB** 
 
 ## Your Model
 
-如果你想加入你自己的模型，你可以将模型加入 `./AMmodel` 目录里 ，声学、语言模型操作都一样，语言模型就放在 `./LMmodel` 里 
+You can add your model in `./AMmodel` folder e.g, LM model is the same with follow:
 
 ```python
 
@@ -259,9 +250,9 @@ class YourModelLAS(LAS):
         self.time_reduction_factor = reduction_factor #if you never use the downsample layer,set 1
 
 ```
-然后,将你的模型添加到`./AMmodel/model.py` ,修改方法 `load_model` 来导入你的模型。
+Then,import the your model in `./AMmodel/model.py` ,modify the `load_model` function
 ## Convert to pb
-AM/LM 的操作都相同:
+AM/LM model are the same as follow:
 ```python
 from AMmodel.model import AM
 am_config = UserConfig('...','...')
@@ -270,7 +261,7 @@ am.load_model(False)
 am.convert_to_pb(export_path)
 ```
 ## Tips
-如果你想用你自己的音素，需要对应 `am_dataloader.py/lm_dataloader.py` 里的转换方法。
+IF you want to use your own phoneme,modify the convert function in `am_dataloader.py/lm_dataloader.py`
 
 ```python
 def init_text_to_vocab(self):#keep the name
@@ -281,7 +272,7 @@ def init_text_to_vocab(self):#keep the name
     self.text_to_vocab = text_to_vocab_func #here self.text_to_vocab is a function,not a call
 ```
 
-不要忘记你的音素列表用 **_`S`_** 和 **_`/S`_** 打头,e.g:
+Don't forget that the token list start with **_`S`_** and **_`/S`_**,e.g:
 
         S
         /S
@@ -294,7 +285,7 @@ def init_text_to_vocab(self):#keep the name
 
 ## References
 
-感谢关注：
+Thanks for follows:
 
 
 https://github.com/usimarit/TiramisuASR `modify from it`
