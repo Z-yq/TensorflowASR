@@ -143,13 +143,14 @@ class BaseTrainer(BaseRunner):
     def _train_batches(self):
         """Train model one epoch."""
 
-        for batch in self.train_datasets.take(self.train_steps_per_epoch):
+        for batch in self.train_datasets:
             try:
                 self.strategy.run(self._train_step,args=(batch,))
                 self.steps+=1
                 self.train_progbar.update(1)
                 self._print_train_metrics(self.train_progbar)
                 self._check_log_interval()
+
                 if self._check_save_interval():
                     break
 
@@ -157,8 +158,9 @@ class BaseTrainer(BaseRunner):
                 continue
 
     def set_datasets(self,train,eval):
-        self.train_datasets=train
-        self.eval_datasets=eval
+        self.train_datasets=self.strategy.experimental_distribute_dataset(train)
+
+        self.eval_datasets=self.strategy.experimental_distribute_dataset(eval)
 
 
     def _train_step(self, batch):
@@ -170,14 +172,15 @@ class BaseTrainer(BaseRunner):
 
         for metric in self.eval_metrics.keys():
             self.eval_metrics[metric].reset_states()
-
-        for batch in self.eval_datasets.take(self.eval_steps_per_epoch):
+        n=0
+        for batch in self.eval_datasets:
             try:
                 self.strategy.run(self._eval_step,args=(batch,))
 
             except tf.errors.OutOfRangeError:
 
                 pass
+            n+=1
 
             # Update steps
             self.eval_progbar.update(1)
@@ -185,7 +188,8 @@ class BaseTrainer(BaseRunner):
 
             # Print eval info to progress bar
             self._print_eval_metrics(self.eval_progbar)
-
+            if n>self.eval_steps_per_epoch:
+                break
         self._write_to_tensorboard(self.eval_metrics, self.steps, stage="eval")
 
     def _eval_step(self, batch):

@@ -44,7 +44,9 @@ class BaseTester():
         self.cer_i = 0
         self.cer_s = 0
         self.steps=0
-
+        self.all_steps=0
+    def set_all_steps(self,all_steps):
+        self.all_steps=all_steps
     def set_progbar(self,total_steps):
         self.eval_progbar = tqdm(
             initial=0, total=total_steps, unit="batch",
@@ -66,6 +68,8 @@ class BaseTester():
             self.eval_progbar.update(1)
             self._print_eval_metrics(self.eval_progbar)
             self.steps += 1
+            if self.finished():
+                break
     def _eval_step(self, batch):
         """
         One testing step
@@ -86,4 +90,7 @@ class BaseTester():
         progbar.set_postfix(result_dict)
 
 
-
+    def finished(self):
+        if self.steps>=self.all_steps:
+            return True
+        return False
