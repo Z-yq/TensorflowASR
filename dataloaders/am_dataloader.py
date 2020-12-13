@@ -76,7 +76,9 @@ class AM_DataLoader():
                                     })
 
         def text_to_vocab_func(txt):
-            return pypinyin.lazy_pinyin(txt, 1, errors='ignore')
+            pins=pypinyin.pinyin(txt)
+            pins=[i[0] for i in pins]
+            return pins
 
         self.text_to_vocab = text_to_vocab_func
 
@@ -138,14 +140,14 @@ class AM_DataLoader():
             self.test_list=data
             self.offset=0
     def only_chinese(self, word):
-
+        txt=''
         for ch in word:
             if '\u4e00' <= ch <= '\u9fff':
-                pass
+                txt+=ch
             else:
-                return False
+                continue
 
-        return True
+        return txt
     def eval_data_generator(self):
         sample=self.test_list[self.offset:self.offset+self.batch]
         self.offset+=self.batch
@@ -172,8 +174,7 @@ class AM_DataLoader():
             elif len(data) > self.speech_featurizer.sample_rate *  self.speech_config['wav_max_duration']:
                 continue
             if self.speech_config['only_chinese']:
-                if not self.only_chinese(txt):
-                    continue
+                txt= self.only_chinese(txt)
             speech_feature = self.speech_featurizer.extract(data)
             max_input = max(max_input, speech_feature.shape[0])
 
@@ -268,10 +269,8 @@ class AM_DataLoader():
                 continue
             elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
                 continue
-
             if self.speech_config['only_chinese']:
-                if not self.only_chinese(txt):
-                    continue
+                txt= self.only_chinese(txt)
             speech_feature = self.speech_featurizer.extract(data)
             max_input = max(max_input, speech_feature.shape[0])
 
@@ -303,8 +302,7 @@ class AM_DataLoader():
                     continue
 
                 if self.speech_config['only_chinese']:
-                    if not self.only_chinese(txt):
-                        continue
+                    txt=self.only_chinese(txt)
                 data=self.augment.process(data)
                 speech_feature = self.speech_featurizer.extract(data)
                 max_input = max(max_input, speech_feature.shape[0])
