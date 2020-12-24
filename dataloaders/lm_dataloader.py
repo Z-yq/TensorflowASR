@@ -197,11 +197,4 @@ class LM_DataLoader():
         while 1:
             x, y, features=self.generate(train)
             yield x,y,features
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
 
-    config = UserConfig(r'D:\TF2-ASR\configs\lm_data.yml', r'D:\TF2-ASR\configs\transformer.yml')
-
-    dg = LM_DataLoader(config)
-    x, y, features= dg.generate()
-    print(x.shape,y.shape,features.shape)

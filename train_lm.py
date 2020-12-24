@@ -33,8 +33,15 @@ class LM_Trainer():
         return batches
     def train(self):
         while 1:
-
-            self.runner.set_datasets(self.dg.generator(True), self.dg.generator(False))
+            train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                            self.dg.return_data_types(),
+                                                            self.dg.return_data_shape(),
+                                                            args=(True,))
+            eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                           self.dg.return_data_types(),
+                                                           self.dg.return_data_shape(),
+                                                           args=(False,))
+            self.runner.set_datasets(train_datasets, eval_datasets)
 
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():

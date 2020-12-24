@@ -540,16 +540,3 @@ class MultiTask_DataLoader():
             yield x, wavs, bert_feature,input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length, txt_label, txt_label_length,guide_matrix
 
 
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
-    import tensorflow as tf
-    config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\MultiConformer.yml')
-    config['decoder1_config']['model_type']='LAS'
-    config['decoder2_config']['model_type']='LAS'
-    config['decoder3_config']['model_type']='LAS'
-    config['decoder4_config']['model_type']='LAS'
-    dg = MultiTask_DataLoader(config)
-    datasets=tf.data.Dataset.from_generator(dg.generator,dg.return_data_types(),dg.return_data_shape())
-
-    # x, wavs, input_length, y1, label_length1 = dg.generator()
-    # print(x.shape, wavs.shape, input_length.shape, y1.shape, label_length1.shape)
