@@ -7,7 +7,7 @@ import os
 from jieba.posseg import lcut
 from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
 import tensorflow as tf
-
+import pypinyin
 class E2E_DataLoader():
 
     def __init__(self, config_dict, training=True):
@@ -133,25 +133,24 @@ class E2E_DataLoader():
             else:
                 self.phone_map[key] = phone_map[self.py_map[key]]
 
-    def map(self, txt):
-        cut = lcut(txt)
-        pys = []
-        phones = []
-        words = []
-        for i in cut:
-            word = i.word
-            if word in self.py_map.keys():
-                py = self.py_map[word]
-                phone = self.phone_map[word]
-                pys += py.split(' ')
-                phones += phone.split(' ')
-                words += list(''.join(py.split(' ')))
-            else:
-                for j in word:
-                    pys += [self.py_map[j]]
-                    phones += self.phone_map[j].split(' ')
-                    words += list(''.join(self.py_map[j]))
-        return pys, phones, words
+    def init_text_to_vocab(self):
+        pypinyin.load_phrases_dict({'调大': [['tiáo'], ['dà']],
+                                    '调小': [['tiáo'], ['xiǎo']],
+                                    '调亮': [['tiáo'], ['liàng']],
+                                    '调暗': [['tiáo'], ['àn']],
+                                    '肖': [['xiāo']],
+                                    '英雄传': [['yīng'], ['xióng'], ['zhuàn']],
+                                    '新传': [['xīn'], ['zhuàn']],
+                                    '外传': [['wài'], ['zhuàn']],
+                                    '正传': [['zhèng'], ['zhuàn']], '水浒传': [['shuǐ'], ['hǔ'], ['zhuàn']]
+                                    })
+
+        def text_to_vocab_func(txt):
+            pins = pypinyin.pinyin(txt)
+            pins = [i[0] for i in pins]
+            return pins
+
+        self.text_to_vocab = text_to_vocab_func
 
     def augment_data(self, wavs, label, label_length):
         if not self.augment.available():
@@ -282,38 +281,30 @@ class E2E_DataLoader():
             speech_feature = self.speech_featurizer.extract(data)
             max_input = max(max_input, speech_feature.shape[0])
 
-            py, phone, word = self.map(txt)
+            py = self.text_to_vocab(txt)
             if len(py) == 0:
                 continue
             e_bert_t, e_bert_s = self.bert_decode([txt])
             bert_feature = self.get_bert_feature(e_bert_t, e_bert_s)
 
-            word_text_feature = self.token1_featurizer.extract(word)
-            phone_text_feature = self.token2_featurizer.extract(phone)
-            py_text_feature = self.token3_featurizer.extract(py)
-            txt_text_feature = self.token4_featurizer.extract(list(txt))
-            max_label_words = max(max_label_words, len(word_text_feature))
-            max_label_phone = max(max_label_phone, len(phone_text_feature))
-            max_label_py = max(max_label_py, len(py_text_feature))
-            max_label_txt = max(max_label_txt, len(txt_text_feature))
+            py_feature = self.token_py_featurizer.extract(py)
+            ch_feature = self.token_ch_featurizer.extract(txt)
+
+            max_label_py = max(max_label_py, len(py_feature))
+            max_label_txt = max(max_label_txt, len(ch_feature))
 
             max_wav = max(max_wav, len(data))
-            if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(py_text_feature):
+            if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(py_feature):
                 continue
             mels.append(speech_feature)
             wavs.append(data)
             input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
-            words_label.append(np.array(word_text_feature))
-            words_label_length.append(len(word_text_feature))
 
-            phone_label.append(np.array(phone_text_feature))
-            phone_label_length.append(len(phone_text_feature))
+            py_label.append(np.array(py_feature))
+            py_label_length.append(len(py_feature))
 
-            py_label.append(np.array(py_text_feature))
-            py_label_length.append(len(py_text_feature))
-
-            txt_label.append(np.array(txt_text_feature))
-            txt_label_length.append(len(txt_text_feature))
+            txt_label.append(np.array(ch_feature))
+            txt_label_length.append(len(ch_feature))
             bert_features.append(bert_feature)
 
         for i in range(len(mels)):
