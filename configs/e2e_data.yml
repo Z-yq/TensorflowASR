@@ -2,7 +2,7 @@
 speech_config:
   use_mel_layer: True
   mel_layer_type: Melspectrogram #Spectrogram
-  trainable_kernel: True #support train model
+  trainable_kernel: False #support train model
   sample_rate: 16000
   frame_ms: 25
   stride_ms: 10
@@ -21,10 +21,10 @@ speech_config:
   wav_max_duration: 7 # s
   only_chinese: True
 
-
 text_config:
-  train_list: './lm_train_list.txt'
-  eval_list: './lm_train_list.txt'
+  extra_train_list: ''
+  extra_eval_list: ''
+  include_punc: True
 
 bert_config:
   config_json: './LMmodel/bert/bert_config.json'
