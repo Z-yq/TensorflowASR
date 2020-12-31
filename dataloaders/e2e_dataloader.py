@@ -1,13 +1,16 @@
+import os
+import random
+
+import numpy as np
+import pypinyin
+import tensorflow as tf
+from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
+
+from augmentations.augments import Augmentation
 from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
-import numpy as np
-from augmentations.augments import Augmentation
-import random
-import os
-from jieba.posseg import lcut
-from keras_bert import Tokenizer, load_vocabulary, load_trained_model_from_checkpoint
-import tensorflow as tf
-import pypinyin
+
+
 class E2E_DataLoader():
 
     def __init__(self, config_dict, training=True):
@@ -33,7 +36,7 @@ class E2E_DataLoader():
 
     def load_state(self, outdir):
         try:
-            self.pick_index = np.load(os.path.join(outdir, 'dg_state.npy')).flatten().tolist()
+            self.wav_pick_index = np.load(os.path.join(outdir, 'dg_state.npy')).flatten().tolist()
             self.epochs = 1 + int(np.mean(self.wav_pick_index))
         except FileNotFoundError:
             print('not found state file')
@@ -76,27 +79,42 @@ class E2E_DataLoader():
     def return_data_types(self):
 
         return (
-        tf.float32, tf.float32, tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32,
-        tf.int32, tf.int32, tf.float32)
+            tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.float32, tf.float32, tf.int32, tf.int32,
+            tf.float32)
 
     def return_data_shape(self):
-        f, c = self.speech_featurizer.compute_feature_dim()
+        if self.speech_config['use_mel_layer']:
 
-        return (
-            tf.TensorShape([None, None, f, c]),
-            tf.TensorShape([None, None, 1]),
-            tf.TensorShape([None, None, 768]),
-            tf.TensorShape([None, ]),
-            tf.TensorShape([None, None]),
-            tf.TensorShape([None, ]),
-            tf.TensorShape([None, None]),
-            tf.TensorShape([None, ]),
-            tf.TensorShape([None, None]),
-            tf.TensorShape([None, ]),
-            tf.TensorShape([None, None]),
-            tf.TensorShape([None, ]),
-            tf.TensorShape([None, None, None])
-        )
+            return (
+                tf.TensorShape([None, None, 1]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None, 768]),
+                tf.TensorShape([None, None, None]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None, 768]),
+
+            )
+        else:
+            f, c = self.speech_featurizer.compute_feature_dim()
+            return (
+                tf.TensorShape([None, None, f, c]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None, 768]),
+                tf.TensorShape([None, None, None]),
+                tf.TensorShape([None, None]),
+                tf.TensorShape([None, ]),
+                tf.TensorShape([None, None, 768]),
+
+            )
 
     def get_per_epoch_steps(self):
         return len(self.wav_train_list) // self.batch
@@ -196,7 +214,7 @@ class E2E_DataLoader():
 
         return x, wavs_, input_length, label_, label_length_
 
-    def make_file_list(self, wav_list, text_list,training=True):
+    def make_file_list(self, wav_list, text_list, training=True):
         with open(wav_list, encoding='utf-8') as f:
             data = f.readlines()
         data = [i.strip() for i in data if i != '']
@@ -206,33 +224,50 @@ class E2E_DataLoader():
             self.wav_test_list = data[int(num * 0.99):]
             np.random.shuffle(self.wav_train_list)
             self.wav_pick_index = [0.] * len(self.wav_train_list)
-            if text_list!='':
+            if text_list != '':
                 with open(text_list, encoding='utf-8') as f:
-                    datas = f.readlines()
-                datas = [i.strip() for i in datas if i != '']
+                    extra_datas = f.readlines()
+                extra_datas = [i.strip() for i in extra_datas if self.check_valid(i,self.token_ch_featurizer.vocab_array)]
+                speech_datas = [i.strip().split('\t')[1] for i in data]
+                lm_datas=extra_datas+speech_datas
+                datas = [i for i in lm_datas if self.check_valid(i, self.token_ch_featurizer.vocab_array)]
             else:
-                datas=[i.strip().split('\t')[1] for i in data]
+                datas = [i.strip().split('\t')[1] for i in data]
+                datas = [i for i in datas if self.check_valid(i,self.token_ch_featurizer.vocab_array)]
             num = len(datas)
-            self.lm_train_list=datas[:int(num * 0.99)]
+            self.lm_train_list = datas[:int(num * 0.99)]
             self.lm_test_list = datas[int(num * 0.99):]
         else:
             self.wav_eval_list = data
-            if text_list!='':
+            if text_list != '':
                 with open(text_list, encoding='utf-8') as f:
-                    datas = f.readlines()
-                datas = [i.strip() for i in datas if i != '']
+                    extra_datas = f.readlines()
+                extra_datas = [i.strip() for i in extra_datas if
+                               self.check_valid(i, self.token_ch_featurizer.vocab_array)]
+                speech_datas = [i.strip().split('\t')[1] for i in data]
+                lm_datas = extra_datas + speech_datas
+                datas = [i for i in lm_datas if self.check_valid(i, self.token_ch_featurizer.vocab_array)]
             else:
-                datas=[i.strip().split('\t')[1] for i in data]
-            self.lm_eval_list=datas
+                datas = [i.strip().split('\t')[1] for i in data]
+                datas = [i for i in datas if self.check_valid(i, self.token_ch_featurizer.vocab_array)]
+            self.lm_eval_list = datas
             self.wav_offset = 0
 
     def only_chinese(self, word):
-        new=''
+        new = ''
         for ch in word:
             if '\u4e00' <= ch <= '\u9fff':
-                new+=ch
+                new += ch
         return new
-
+    def check_valid(self,txt,vocab_list):
+        if len(txt)==0:
+            return False
+        for n in txt:
+            if n in vocab_list:
+                pass
+            else:
+                return False
+        return True
     def eval_data_generator(self):
         sample = self.wav_test_list[self.wav_offset:self.wav_offset + self.batch]
         self.wav_offset += self.batch
@@ -242,7 +277,6 @@ class E2E_DataLoader():
         py_label_length = []
         txt_label = []
         txt_label_length = []
-        bert_features = []
         max_wav = 0
         max_input = 0
         max_label_py = 0
@@ -256,7 +290,7 @@ class E2E_DataLoader():
                 continue
             if len(data) < 400:
                 continue
-            elif len(data) > self.speech_featurizer.sample_rate * 7:
+            elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
                 continue
 
             if self.speech_config['only_chinese']:
@@ -265,16 +299,16 @@ class E2E_DataLoader():
                 speech_feature = data / np.abs(data).max()
                 speech_feature = np.expand_dims(speech_feature, -1)
                 in_len = len(speech_feature) // (
-                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
-                            self.speech_config['stride_ms'])
+                        self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                        self.speech_config['stride_ms'])
             else:
                 speech_feature = self.speech_featurizer.extract(data)
                 in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
-            py = self.text_to_vocab(txt)
-            if len(py) == 0:
+            if not self.check_valid(txt,self.token_ch_featurizer.vocab_array):
                 continue
-            e_bert_t, e_bert_s = self.bert_decode([txt])
-            bert_feature = self.get_bert_feature(e_bert_t, e_bert_s)
+            py = self.text_to_vocab(txt)
+            if not self.check_valid(py,self.token_py_featurizer.vocab_array):
+                continue
 
             py_text_feature = self.token_py_featurizer.extract(py)
             ch_text_feature = self.token_ch_featurizer.extract(list(txt))
@@ -297,7 +331,7 @@ class E2E_DataLoader():
 
             txt_label.append(np.array(ch_text_feature))
             txt_label_length.append(len(ch_text_feature))
-            bert_features.append(bert_feature)
+            # bert_features.append(bert_feature)
 
         if self.speech_config['use_mel_layer']:
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_wav)
@@ -309,25 +343,20 @@ class E2E_DataLoader():
                     pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
                                    speech_features[i].shape[2]]) * speech_features[i].min()
                     speech_features[i] = np.vstack((speech_features[i], pad))
-        for i in range(len(bert_features)):
-            if bert_features[i].shape[0] < max_label_txt:
-                pading = np.ones([max_label_txt - len(bert_features[i]), 768]) * -10.
-                bert_features[i] = np.vstack((bert_features[i], pading))
+
 
         py_label = self.pad(py_label, max_label_py)
         txt_label = self.pad(txt_label, max_label_txt)
 
         speech_features = np.array(speech_features, 'float32')
-        bert_features = np.array(bert_features, 'float32')
-
         py_label = np.array(py_label, 'int32')
         txt_label = np.array(txt_label, 'int32')
-
         input_length = np.array(input_length, 'int32')
         py_label_length = np.array(py_label_length, 'int32')
         txt_label_length = np.array(txt_label_length, 'int32')
 
-        return speech_features, bert_features, input_length, py_label, py_label_length, txt_label, txt_label_length
+        return speech_features,  input_length, py_label, py_label_length, txt_label, txt_label_length
+
     def pad(self, words_label, max_label_words):
         for i in range(len(words_label)):
             if words_label[i].shape[0] < max_label_words:
@@ -397,10 +426,12 @@ class E2E_DataLoader():
             if self.speech_config['use_mel_layer']:
                 speech_feature = data / np.abs(data).max()
                 speech_feature = np.expand_dims(speech_feature, -1)
-                in_len=len(speech_feature) // (self.speech_config['reduction_factor']*(self.speech_featurizer.sample_rate/1000)*self.speech_config['stride_ms'])
+                in_len = len(speech_feature) // (
+                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                            self.speech_config['stride_ms'])
             else:
                 speech_feature = self.speech_featurizer.extract(data)
-                in_len=int(speech_feature.shape[0]//self.speech_config['reduction_factor'])
+                in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
             py = self.text_to_vocab(txt)
             if len(py) == 0:
                 continue
@@ -411,7 +442,7 @@ class E2E_DataLoader():
             ch_text_feature = self.token_ch_featurizer.extract(list(txt))
 
             if speech_feature.shape[0] // self.speech_config['reduction_factor'] < len(py_text_feature) or \
-                    speech_feature.shape[0] // self.speech_config['reduction_factor'] < len(ch_text_feature) :
+                    speech_feature.shape[0] // self.speech_config['reduction_factor'] < len(ch_text_feature):
                 continue
             max_input = max(max_input, speech_feature.shape[0])
 
@@ -422,7 +453,6 @@ class E2E_DataLoader():
             speech_features.append(speech_feature)
 
             input_length.append(in_len)
-
 
             py_label.append(np.array(py_text_feature))
             py_label_length.append(len(py_text_feature))
@@ -444,16 +474,16 @@ class E2E_DataLoader():
                     continue
                 elif len(data) > self.speech_featurizer.sample_rate * 7:
                     continue
-                
+
                 if self.speech_config['only_chinese']:
                     txt = self.only_chinese(txt)
 
                 if self.speech_config['use_mel_layer']:
                     speech_feature = data / np.abs(data).max()
-                    speech_feature = np.expand_dims(speech_feature,-1)
+                    speech_feature = np.expand_dims(speech_feature, -1)
                     in_len = len(speech_feature) // (
-                                self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
-                                self.speech_config['stride_ms'])
+                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                            self.speech_config['stride_ms'])
                 else:
                     speech_feature = self.speech_featurizer.extract(data)
                     in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
@@ -493,13 +523,13 @@ class E2E_DataLoader():
             for i in range(len(speech_features)):
 
                 if speech_features[i].shape[0] < max_input:
-                    pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1], speech_features[i].shape[2]]) * speech_features[i].min()
+                    pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
+                                   speech_features[i].shape[2]]) * speech_features[i].min()
                     speech_features[i] = np.vstack((speech_features[i], pad))
         for i in range(len(bert_features)):
             if bert_features[i].shape[0] < max_label_txt:
                 pading = np.ones([max_label_txt - len(bert_features[i]), 768]) * -10.
                 bert_features[i] = np.vstack((bert_features[i], pading))
-
 
         py_label = self.pad(py_label, max_label_py)
         txt_label = self.pad(txt_label, max_label_txt)
@@ -514,8 +544,7 @@ class E2E_DataLoader():
         py_label_length = np.array(py_label_length, 'int32')
         txt_label_length = np.array(txt_label_length, 'int32')
 
-
-        return speech_features, bert_features, input_length,  py_label, py_label_length, txt_label, txt_label_length
+        return speech_features, input_length, py_label, py_label_length, txt_label, txt_label_length, bert_features
 
     def preprocess(self, tokens, txts):
         x = []
@@ -536,7 +565,7 @@ class E2E_DataLoader():
 
         return x, y
 
-    def generate_text_data(self,train=True):
+    def generate_text_data(self, train=True):
         if train:
             sample = random.sample(self.lm_train_list, self.batch)
         else:
@@ -546,11 +575,11 @@ class E2E_DataLoader():
         x, y = self.preprocess(trainx, trainy)
         e_bert_t, e_bert_s = self.bert_decode(trainy)
         bert_features = self.get_bert_feature(e_bert_t, e_bert_s)
-        x_max=max([len(i) for i in x])
-        y_max=max([len(i) for i in y])
-        x = self.pad(x,x_max)
-        y = self.pad(y,y_max)
-        max_label_len=max([len(i) for i in bert_features])
+        x_max = max([len(i) for i in x])
+        y_max = max([len(i) for i in y])
+        x = self.pad(x, x_max)
+        y = self.pad(y, y_max)
+        max_label_len = max([len(i) for i in bert_features])
         for i in range(len(bert_features)):
             if bert_features[i].shape[0] < max_label_len:
                 pading = np.ones([max_label_len - len(bert_features[i]), 768]) * -10.
@@ -564,11 +593,11 @@ class E2E_DataLoader():
 
     def generator(self, train=True):
         while 1:
-            speech_features, bert_features, input_length,  py_label, py_label_length, txt_label, txt_label_length = self.generate_speech_data(
+            speech_features, input_length, py_label, py_label_length, txt_label, txt_label_length, bert_features = self.generate_speech_data(
                 train)
 
             guide_matrix = self.guided_attention(input_length, txt_label_length, np.max(input_length),
                                                  txt_label_length.max())
-            yield speech_features, bert_features, input_length,  py_label, py_label_length, txt_label, txt_label_length, guide_matrix
 
-
+            lm_pys, lm_chs, lm_ch_features = self.generate_text_data(train)
+            yield speech_features, input_length, py_label, py_label_length, txt_label, txt_label_length, bert_features, guide_matrix, lm_pys, lm_chs, lm_ch_features

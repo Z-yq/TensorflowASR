@@ -1,0 +1,29 @@
+
+am_model_config:
+  name: ConformerCTC #ConformerTransducer/ConformerCTC/ConformerLAS
+  dmodel: 144
+  reduction_factor: 4
+  num_blocks: 16
+  head_size: 32
+  num_heads: 4
+  kernel_size: 32
+  fc_factor: 0.5
+  dropout: 0.1
+
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
+
+lm_model_config:
+  name: Transformer
+  num_layers: 5  #for encoder and decoder
+  d_model: 768
+  enc_embedding_dim: 768
+  num_heads: 8
+  dff: 1024
+  pe_input: 1024
+  rate: 0.1
+
+
