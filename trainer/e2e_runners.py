@@ -78,7 +78,7 @@ class E2ETrainer(BaseTrainer):
                                                        global_batch_size=self.global_batch_size)
 
         am_gradients = tape.gradient(am_train_loss, self.am_model.trainable_variables)
-        lm_gradients = tape.gradient(lm_train_loss, self.lm_model.trainable_variables)
+        lm_gradients = tape2.gradient(lm_train_loss, self.lm_model.trainable_variables)
         self.am_optimizer.apply_gradients(zip(am_gradients, self.am_model.trainable_variables))
         self.lm_optimizer.apply_gradients(zip(lm_gradients, self.lm_model.trainable_variables))
 
@@ -106,7 +106,7 @@ class E2ETrainer(BaseTrainer):
     def lm_train_step(self, batch):
         inp, tar, feature = batch
 
-        with tf.GradientTape() as tape:
+        with tf.GradientTape() as tape3:
             predictions, out_feature,_ = self.lm_model(inp,self.lm_model.create_padding_mask(inp),
                                                   training=True)
             classes_loss = self.classes_loss(tar, predictions)
@@ -117,7 +117,7 @@ class E2ETrainer(BaseTrainer):
             train_loss = tf.nn.compute_average_loss(train_loss,
                                                     global_batch_size=self.global_batch_size)
 
-        gradients = tape.gradient(train_loss, self.lm_model.trainable_variables)
+        gradients = tape3.gradient(train_loss, self.lm_model.trainable_variables)
         self.lm_optimizer.apply_gradients(zip(gradients, self.lm_model.trainable_variables))
 
         self.train_metrics['lm_loss'].update_state(classes_loss)

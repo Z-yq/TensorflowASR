@@ -82,7 +82,7 @@ class LM_DataLoader():
         txts = []
         for txt in tqdm(data):
             txt = txt.strip()
-            if len(txt) > 150:
+            if len(txt) < 150 and self.check_valid(txt,self.word_featurizer.vocab_array):
                 continue
             txts.append(txt)
         if training:
@@ -154,7 +154,15 @@ class LM_DataLoader():
             feature = self.bert.predict([t, s])
             f.append(feature[0])
         return f
-
+    def check_valid(self,txt,vocab_list):
+        if len(txt)==0:
+            return False
+        for n in txt:
+            if n in vocab_list:
+                pass
+            else:
+                return False
+        return True
     def generate(self,train=True):
         if train:
             indexs = np.argsort(self.train_pick)[:2 * self.batch]

@@ -34,10 +34,11 @@ class E2EAM(AM):
         except:
             print('am loading model failed.')
     def conformer_model(self, training):
-        from AMmodel.conformer import  ConformerCTC
+        from AMmodel.conformer import  ConformerE2E
         self.model_config.update({'vocabulary_size': self.text_feature.num_classes})
         self.model_config.update({'speech_config': self.speech_config})
-        self.model = ConformerCTC(**self.model_config)
+        self.model_config.update({'lm_emb':self.config['lm_model_config']['dmodel']})
+        self.model = ConformerE2E(**self.model_config)
 
 class E2ELM(LM):
     def __init__(self,config):

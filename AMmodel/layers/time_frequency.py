@@ -6,7 +6,7 @@ import tensorflow as tf
 
 class Spectrogram(Layer):
     def __init__(self, n_dft=512, n_hop=None, padding='same',
-                 power_spectrogram=2.0, return_decibel_spectrogram=True,
+                 power_spectrogram=2.0, return_decibel_spectrogram=False,
                  trainable_kernel=False, image_data_format='channels_last', **kwargs):
         assert n_dft > 1 and ((n_dft & (n_dft - 1)) == 0), \
             ('n_dft should be > 1 and power of 2, but n_dft == %d' % n_dft)
@@ -147,7 +147,7 @@ class Melspectrogram(Spectrogram):
     def build(self, input_shape):
         super(Melspectrogram, self).build(input_shape)
         self.built = False
-        # compute freq2mel matrix --> 
+        # compute freq2mel matrix -->
         mel_basis = backend.mel(self.sr, self.n_dft, self.n_mels, self.fmin, self.fmax,
                                 self.htk, self.norm)  # (128, 1025) (mel_bin, n_freq)
         mel_basis = np.transpose(mel_basis)
@@ -179,8 +179,9 @@ class Melspectrogram(Spectrogram):
             output = K.permute_dimensions(output, [0, 2, 3, 1])
         if self.power_melgram != 2.0:
             output = K.pow(K.sqrt(output), self.power_melgram)
-        # if self.return_decibel_melgram:
-        #     output = backend_keras.amplitude_to_decibel(output)
+        if self.return_decibel_melgram:
+            output = backend_keras.amplitude_to_decibel(output)
+            output = (output+40.)/10.
         return output
 
     def get_config(self):

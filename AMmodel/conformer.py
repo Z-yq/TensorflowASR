@@ -3,7 +3,7 @@ import tensorflow as tf
 
 from AMmodel.layers.time_frequency import Melspectrogram
 from AMmodel.transducer_wrap import Transducer
-from AMmodel.ctc_wrap import CtcModel
+from AMmodel.ctc_wrap import CtcModel,CtcE2eModel
 from AMmodel.las_wrap import LAS,LASConfig
 from utils.tools import merge_two_last_dims
 from AMmodel.layers.positional_encoding import PositionalEncoding
@@ -374,6 +374,33 @@ class ConformerLAS(LAS):
         speech_config=speech_config
         )
         self.time_reduction_factor = config['reduction_factor']
+class ConformerE2E(CtcE2eModel):
+    def __init__(self,
+                 dmodel: int,
+                 reduction_factor: int,
+                 vocabulary_size: int,
+                 num_blocks: int = 16,
+                 head_size: int = 36,
+                 num_heads: int = 4,
+                 kernel_size: int = 32,
+                 fc_factor: float = 0.5,
+                 dropout: float = 0,
+                 speech_config: dict={},
+                 lm_emb: int=768,
+                 name='conformerCTC',
+                 **kwargs):
+        super(ConformerE2E, self).__init__(
+            encoder=ConformerEncoder(
+                dmodel=dmodel,
+                reduction_factor=reduction_factor,
+                num_blocks=num_blocks,
+                head_size=head_size,
+                num_heads=num_heads,
+                kernel_size=kernel_size,
+                fc_factor=fc_factor,
+                dropout=dropout,
+            ),num_classes=vocabulary_size,lm_embedding=lm_emb,name=name,speech_config=speech_config)
+        self.time_reduction_factor = reduction_factor
 if __name__ == '__main__':
     from utils.user_config import UserConfig
     from utils.text_featurizers import TextFeaturizer
