@@ -140,6 +140,7 @@ class Transducer(tf.keras.Model):
                     n_dft=1024,
                     trainable_kernel=speech_config['trainable_kernel']
                 )
+            self.mel_layer.trainable = speech_config['trainable_kernel']
         self.kept_decode = None
         self.startid = 0
         self.endid = 1

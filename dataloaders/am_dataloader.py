@@ -44,8 +44,8 @@ class AM_DataLoader():
         f,c=self.speech_featurizer.compute_feature_dim()
         if self.LAS:
             return (
-                tf.TensorShape([None,None,f,c]),
-                tf.TensorShape([None,None,1]),
+                tf.TensorShape([None,None,1]) if self.speech_config['use_mel_layer'] else  tf.TensorShape([None,None,f,c]),
+
                 tf.TensorShape([None,]),
                 tf.TensorShape([None,None]),
                 tf.TensorShape([None,]),
@@ -53,8 +53,9 @@ class AM_DataLoader():
             )
         else:
             return (
-                tf.TensorShape([None, None, f, c]),
-                tf.TensorShape([None, None, 1]),
+                tf.TensorShape([None, None, 1]) if self.speech_config['use_mel_layer'] else tf.TensorShape(
+                    [None, None, f, c]),
+
                 tf.TensorShape([None, ]),
                 tf.TensorShape([None, None]),
                 tf.TensorShape([None, ])
@@ -151,15 +152,10 @@ class AM_DataLoader():
     def eval_data_generator(self):
         sample=self.test_list[self.offset:self.offset+self.batch]
         self.offset+=self.batch
-        mels = []
+        speech_features = []
         input_length = []
-
         y1 = []
         label_length1 = []
-
-        wavs = []
-
-        max_wav = 0
         max_input = 0
         max_label1 = 0
         for i in sample:
@@ -175,46 +171,64 @@ class AM_DataLoader():
                 continue
             if self.speech_config['only_chinese']:
                 txt= self.only_chinese(txt)
-            speech_feature = self.speech_featurizer.extract(data)
+            if self.speech_config['use_mel_layer']:
+                speech_feature = data / np.abs(data).max()
+                speech_feature = np.expand_dims(speech_feature, -1)
+                in_len = len(speech_feature) // (
+                        self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                        self.speech_config['stride_ms'])
+            else:
+                speech_feature = self.speech_featurizer.extract(data)
+                in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
             max_input = max(max_input, speech_feature.shape[0])
 
-            py3 = self.text_to_vocab(txt)
-            if len(py3) == 0:
+            py = self.text_to_vocab(txt)
+            if not self.check_valid(py, self.text_featurizer.vocab_array):
                 continue
+            text_feature = self.text_featurizer.extract(py)
 
-            text_feature = self.text_featurizer.extract(py3)
-            max_label1 = max(max_label1, len(text_feature))
-            max_wav = max(max_wav, len(data))
-            if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(text_feature):
+            if in_len < len(text_feature):
                 continue
-            mels.append(speech_feature)
-            wavs.append(data)
-            input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
+            max_input = max(max_input, len(speech_feature))
+            max_label1 = max(max_label1, len(text_feature))
+            speech_features.append(speech_feature)
+            input_length.append(in_len)
             y1.append(np.array(text_feature))
             label_length1.append(len(text_feature))
 
-        for i in range(len(mels)):
-            if mels[i].shape[0] < max_input:
-                pad = np.ones([max_input - mels[i].shape[0], mels[i].shape[1], mels[i].shape[2]]) * mels[i].min()
-                mels[i] = np.vstack((mels[i], pad))
+        if self.speech_config['use_mel_layer']:
+            speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
-        wavs = self.speech_featurizer.pad_signal(wavs, max_wav)
+        else:
+            for i in range(len(speech_features)):
+
+                if speech_features[i].shape[0] < max_input:
+                    pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
+                                   speech_features[i].shape[2]]) * speech_features[i].min()
+                    speech_features[i] = np.vstack((speech_features[i], pad))
+
         for i in range(len(y1)):
             if y1[i].shape[0] < max_label1:
                 pad = np.ones(max_label1 - y1[i].shape[0]) * self.text_featurizer.pad
                 y1[i] = np.hstack((y1[i], pad))
 
-        x = np.array(mels, 'float32')
+        x = np.array(speech_features, 'float32')
         y1 = np.array(y1, 'int32')
 
         input_length = np.array(input_length, 'int32')
         label_length1 = np.array(label_length1, 'int32')
 
-        wavs = np.array(np.expand_dims(wavs, -1), 'float32')
-
-        return x, wavs, input_length, y1, label_length1
-
-    def GuidedAttention(self, N, T, g=0.2):
+        return x, input_length, y1, label_length1
+    def check_valid(self,txt,vocab_list):
+        if len(txt)==0:
+            return False
+        for n in txt:
+            if n in vocab_list:
+                pass
+            else:
+                return False
+        return True
+    def GuidedAttentionMatrix(self, N, T, g=0.2):
         W = np.zeros((N, T), dtype=np.float32)
         for n in range(N):
             for t in range(T):
@@ -228,7 +242,7 @@ class AM_DataLoader():
             step = int(j)
             pad = np.ones([inputs_shape, mel_target_shape]) * -1.
             pad[i:, :step] = 1
-            att_target = self.GuidedAttention(i, step, 0.2)
+            att_target = self.GuidedAttentionMatrix(i, step, 0.2)
             pad[:att_target.shape[0], :att_target.shape[1]] = att_target
             att_targets.append(pad)
         att_targets = np.array(att_targets)
@@ -246,16 +260,11 @@ class AM_DataLoader():
             self.epochs =1+ int(np.mean(self.pick_index))
         else:
             sample = random.sample(self.test_list, self.batch)
-
-        mels = []
+        speech_features = []
         input_length = []
-
         y1 = []
         label_length1 = []
 
-        wavs = []
-
-        max_wav = 0
         max_input = 0
         max_label1 = 0
         for i in sample:
@@ -271,21 +280,28 @@ class AM_DataLoader():
                 continue
             if self.speech_config['only_chinese']:
                 txt= self.only_chinese(txt)
-            speech_feature = self.speech_featurizer.extract(data)
-            max_input = max(max_input, speech_feature.shape[0])
+            if self.speech_config['use_mel_layer']:
+                speech_feature = data / np.abs(data).max()
+                speech_feature = np.expand_dims(speech_feature, -1)
+                in_len = len(speech_feature) // (
+                        self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                        self.speech_config['stride_ms'])
+            else:
+                speech_feature = self.speech_featurizer.extract(data)
+                in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
 
-            py3 = self.text_to_vocab(txt)
-            if len(py3) == 0:
+
+            py = self.text_to_vocab(txt)
+            if not self.check_valid(py,self.text_featurizer.vocab_array):
                 continue
+            text_feature = self.text_featurizer.extract(py)
 
-            text_feature = self.text_featurizer.extract(py3)
+            if in_len < len(text_feature):
+                continue
+            max_input = max(max_input, len(speech_feature))
             max_label1 = max(max_label1, len(text_feature))
-            max_wav = max(max_wav, len(data))
-            if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(text_feature):
-                continue
-            mels.append(speech_feature)
-            wavs.append(data)
-            input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
+            speech_features.append(speech_feature)
+            input_length.append(in_len)
             y1.append(np.array(text_feature))
             label_length1.append(len(text_feature))
         if train and self.augment.available():
@@ -300,58 +316,69 @@ class AM_DataLoader():
                     continue
                 elif len(data) > self.speech_featurizer.sample_rate *  self.speech_config['wav_max_duration']:
                     continue
-
+                data = self.augment.process(data)
                 if self.speech_config['only_chinese']:
-                    txt=self.only_chinese(txt)
-                data=self.augment.process(data)
-                speech_feature = self.speech_featurizer.extract(data)
-                max_input = max(max_input, speech_feature.shape[0])
+                    txt = self.only_chinese(txt)
+                if self.speech_config['use_mel_layer']:
+                    speech_feature = data / np.abs(data).max()
+                    speech_feature = np.expand_dims(speech_feature, -1)
+                    in_len = len(speech_feature) // (
+                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                            self.speech_config['stride_ms'])
+                else:
+                    speech_feature = self.speech_featurizer.extract(data)
+                    in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
 
-                py3 = self.text_to_vocab(txt)
-                if len(py3) == 0:
+                py = self.text_to_vocab(txt)
+                if not self.check_valid(py, self.text_featurizer.vocab_array):
                     continue
 
-                text_feature = self.text_featurizer.extract(py3)
+                text_feature = self.text_featurizer.extract(py)
+
+
+                if in_len < len(text_feature):
+                    continue
+                max_input = max(max_input, len(speech_feature))
                 max_label1 = max(max_label1, len(text_feature))
-                max_wav = max(max_wav, len(data))
-                if speech_feature.shape[0] / self.speech_config['reduction_factor'] < len(text_feature):
-                    continue
-                mels.append(speech_feature)
-                wavs.append(data)
-                input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
+                speech_features.append(speech_feature)
+
+                input_length.append(in_len)
                 y1.append(np.array(text_feature))
                 label_length1.append(len(text_feature))
 
-        for i in range(len(mels)):
-            if mels[i].shape[0] < max_input:
-                pad = np.ones([max_input - mels[i].shape[0], mels[i].shape[1], mels[i].shape[2]]) * mels[i].min()
-                mels[i] = np.vstack((mels[i], pad))
+        if self.speech_config['use_mel_layer']:
+            speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
-        wavs = self.speech_featurizer.pad_signal(wavs, max_wav)
+        else:
+            for i in range(len(speech_features)):
+
+                if speech_features[i].shape[0] < max_input:
+                    pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
+                                   speech_features[i].shape[2]]) * speech_features[i].min()
+                    speech_features[i] = np.vstack((speech_features[i], pad))
+
         for i in range(len(y1)):
             if y1[i].shape[0] < max_label1:
                 pad = np.ones(max_label1 - y1[i].shape[0])*self.text_featurizer.pad
                 y1[i] = np.hstack((y1[i], pad))
 
-        x = np.array(mels, 'float32')
+        x = np.array(speech_features, 'float32')
         y1 = np.array(y1, 'int32')
 
         input_length = np.array(input_length, 'int32')
         label_length1 = np.array(label_length1, 'int32')
 
-        wavs = np.array(np.expand_dims(wavs, -1), 'float32')
-
-        return x, wavs, input_length, y1, label_length1
+        return x, input_length, y1, label_length1
     def generator(self,train=True):
         while 1:
-            x, wavs, input_length, labels, label_length=self.generate(train)
+            x,  input_length, labels, label_length=self.generate(train)
             if x.shape[0]==0:
                 continue
             if self.LAS:
                 guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
                                                      label_length.max())
-                yield x, wavs, input_length, labels, label_length,guide_matrix
+                yield x, input_length, labels, label_length,guide_matrix
             else:
-                yield x, wavs, input_length, labels, label_length
+                yield x,  input_length, labels, label_length
 
 

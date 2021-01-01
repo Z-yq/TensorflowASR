@@ -98,8 +98,13 @@ class LM_DataLoader():
     def preprocess(self, tokens, txts):
         x = []
         y = []
+        new = []
         for token, txt in zip(tokens, txts):
             # print(py,txt)
+            if not self.check_valid(token, self.vocab_featurizer.vocab_array):
+                continue
+            if not self.check_valid(txt, self.word_featurizer.vocab_array):
+                continue
             # try:
             x_ = [self.vocab_featurizer.startid()]
             y_ = [self.word_featurizer.startid()]
@@ -111,8 +116,8 @@ class LM_DataLoader():
             y_.append(self.word_featurizer.endid())
             x.append(np.array(x_))
             y.append(np.array(y_))
-
-        return x, y
+            new.append(txt)
+        return x, y, new
 
     def bert_decode(self, x, x2=None):
         tokens, segs = [], []
@@ -147,13 +152,26 @@ class LM_DataLoader():
         return x
 
     def get_bert_feature(self, bert_t, bert_s):
-        f = []
-        for t, s in zip(bert_t, bert_s):
-            t = np.expand_dims(np.array(t), 0)
-            s = np.expand_dims(np.array(s), 0)
-            feature = self.bert.predict([t, s])
-            f.append(feature[0])
-        return f
+
+        length = [len(i) for i in bert_t]
+        max_len = max(length)
+        bert_s = tf.keras.preprocessing.sequence.pad_sequences(bert_s, max_len, padding='post', truncating='post')
+        bert_t = tf.keras.preprocessing.sequence.pad_sequences(bert_t, max_len, padding='post', truncating='post')
+        features = self.bert.predict([bert_t, bert_s])
+
+        for idx, l in enumerate(length):
+            features[idx, l:] = -10.
+
+        return features
+    def check_valid(self,txt,vocab_list):
+        if len(txt)==0:
+            return False
+        for n in txt:
+            if n in vocab_list:
+                pass
+            else:
+                return False
+        return True
 
     def generate(self,train=True):
         if train:
@@ -167,8 +185,8 @@ class LM_DataLoader():
             sample = random.sample(self.test_texts, self.batch)
         trainx = [self.text_to_vocab(i) for i in sample]
         trainy = sample
-        x, y = self.preprocess(trainx, trainy)
-        e_bert_t, e_bert_s = self.bert_decode(trainy)
+        x, y,new = self.preprocess(trainx, trainy)
+        e_bert_t, e_bert_s = self.bert_decode(new)
         e_features = self.get_bert_feature(e_bert_t, e_bert_s)
         x = self.pad(x)
         y = self.pad(y)
@@ -187,7 +205,7 @@ class LM_DataLoader():
         self.offset+=self.batch
         trainx = [self.text_to_vocab(i) for i in sample]
         trainy = sample
-        x, y = self.preprocess(trainx, trainy)
+        x, y,new = self.preprocess(trainx, trainy)
         x = self.pad(x)
         y = self.pad(y)
         x = np.array(x,'int32')

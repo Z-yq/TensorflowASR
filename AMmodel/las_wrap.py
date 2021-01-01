@@ -566,7 +566,7 @@ class LAS(tf.keras.Model):
                                              n_dft=1024,
                                              trainable_kernel=speech_config['trainable_kernel']
                                              )
-
+            self.mel_layer.trainable = speech_config['trainable_kernel']
 
         self.use_window_mask = False
         self.maximum_iterations = 1000 if training else 50

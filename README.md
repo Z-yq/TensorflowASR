@@ -96,7 +96,7 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
 ## What's New?
 
 最新更新
-
+- 优化了一些逻辑
 - Change RNNT predict to support C++
 - Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
     

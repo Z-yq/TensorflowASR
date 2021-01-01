@@ -38,6 +38,7 @@ class CtcModel(tf.keras.Model):
                                                 n_dft=1024,
                                                 trainable_kernel=speech_config['trainable_kernel']
                                                 )
+            self.mel_layer.trainable=speech_config['trainable_kernel']
         self.fc = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Dense(units=num_classes, activation="linear",
                                   use_bias=True), name="fully_connected")

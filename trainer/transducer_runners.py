@@ -44,17 +44,15 @@ class TransducerTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, wavs, input_length, labels, label_length = batch
+        features,  input_length, labels, label_length = batch
         pred_inp=labels
         target=labels[:,1:]
         label_length-=1
 
         with tf.GradientTape() as tape:
-            if self.model.mel_layer is not None:
-                logits = self.model([wavs, pred_inp], training=True)
-            else:
-                logits = self.model([features, pred_inp], training=True)
-            tape.watch(logits)
+
+
+            logits = self.model([features, pred_inp], training=True)
             # print(logits.shape,target.shape)
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
@@ -86,10 +84,9 @@ class TransducerTrainer(BaseTrainer):
         pred_inp = labels
         target = labels[:, 1:]
         label_length -= 1
-        if self.model.mel_layer is not None:
-            logits=self.model([wavs, pred_inp], training=False)
-        else:
-            logits = self.model([features, pred_inp], training=False)
+
+
+        logits = self.model([features, pred_inp], training=False)
         if USE_TF:
             eval_loss = self.rnnt_loss(logits=logits, labels=target
                                             , label_length=label_length,

@@ -1,10 +1,10 @@
 
 model_config:
-  name: ConformerLAS #ConformerTransducer/ConformerCTC/ConformerLAS
-  dmodel: 256
+  name: ConformerCTC #ConformerTransducer/ConformerCTC/ConformerLAS
+  dmodel: 144
   reduction_factor: 4
-  num_blocks: 6
-  head_size: 64
+  num_blocks: 16
+  head_size: 36
   num_heads: 4
   kernel_size: 32
   fc_factor: 0.5
