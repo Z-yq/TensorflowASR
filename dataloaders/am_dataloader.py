@@ -39,7 +39,7 @@ class AM_DataLoader():
         if self.LAS:
             return (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32,tf.float32)
         else:
-            return  (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32)
+            return  (tf.float32, tf.int32, tf.int32, tf.int32)
     def return_data_shape(self):
         f,c=self.speech_featurizer.compute_feature_dim()
         if self.LAS:
