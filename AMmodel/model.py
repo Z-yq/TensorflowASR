@@ -57,7 +57,7 @@ class AM():
             raise ('not in supported model list')
     def ds2_model(self,training):
         from AMmodel.deepspeech2 import DeepSpeech2CTC,DeepSpeech2LAS,DeepSpeech2Transducer
-
+        self.model_config['Transducer_decoder']['vocabulary_size']= self.text_feature.num_classes
         f,c=self.speech_feature.compute_feature_dim()
         input_shape=[None,f,c]
         self.model_config.update({'input_shape':input_shape})

@@ -50,13 +50,13 @@ def create_ds2(input_shape: list, arch_config: dict, name: str = "deepspeech2"):
     assert rnn_conf["rnn_type"] in ["lstm", "gru", "rnn"]
     assert conv_conf["conv_dropout"] >= 0.0 and rnn_conf["rnn_dropout"] >= 0.0
 
-    features = tf.keras.Input(shape=input_shape, name="features")
-    layer = features
+    # features = tf.keras.Input(shape=input_shape, name="features")
+    layer = []
 
     if conv_conf["conv_type"] == 2:
         conv = tf.keras.layers.Conv2D
     else:
-        layer = Merge2LastDims("conv1d_features")(layer)
+        layer += [Merge2LastDims("conv1d_features")]
         conv = tf.keras.layers.Conv1D
         ker_shape = np.shape(conv_conf["conv_kernels"])
         stride_shape = np.shape(conv_conf["conv_strides"])
@@ -65,59 +65,59 @@ def create_ds2(input_shape: list, arch_config: dict, name: str = "deepspeech2"):
 
     # CONV Layers
     for i, fil in enumerate(conv_conf["conv_filters"]):
-        layer = conv(filters=fil, kernel_size=conv_conf["conv_kernels"][i],
+        layer += [conv(filters=fil, kernel_size=conv_conf["conv_kernels"][i],
                      strides=conv_conf["conv_strides"][i], padding="same",
-                     activation=None, dtype=tf.float32, name=f"cnn_{i}")(layer)
-        layer = tf.keras.layers.BatchNormalization(name=f"cnn_bn_{i}")(layer)
-        layer = tf.keras.layers.ReLU(name=f"cnn_relu_{i}")(layer)
-        layer = tf.keras.layers.Dropout(conv_conf["conv_dropout"],
-                                        name=f"cnn_dropout_{i}")(layer)
+                     activation=None, dtype=tf.float32, name=f"cnn_{i}")]
+        layer += [tf.keras.layers.BatchNormalization(name=f"cnn_bn_{i}")]
+        layer += [tf.keras.layers.ReLU(name=f"cnn_relu_{i}")]
+        layer += [tf.keras.layers.Dropout(conv_conf["conv_dropout"],
+                                        name=f"cnn_dropout_{i}")]
 
     if conv_conf["conv_type"] == 2:
-        layer = Merge2LastDims("reshape_conv2d_to_rnn")(layer)
+        layer += [Merge2LastDims("reshape_conv2d_to_rnn")]
 
     rnn = get_rnn(rnn_conf["rnn_type"])
 
     # To time major
     if rnn_conf["rnn_bidirectional"]:
-        layer = TransposeTimeMajor("transpose_to_time_major")(layer)
+        layer += [TransposeTimeMajor("transpose_to_time_major")]
 
     # RNN layers
     for i in range(rnn_conf["rnn_layers"]):
         if rnn_conf["rnn_bidirectional"]:
-            layer = tf.keras.layers.Bidirectional(
+            layer += [tf.keras.layers.Bidirectional(
                 rnn(rnn_conf["rnn_units"], activation=rnn_conf["rnn_activation"],
                     time_major=True, dropout=rnn_conf["rnn_dropout"],
                     return_sequences=True, use_bias=True),
-                name=f"b{rnn_conf['rnn_type']}_{i}")(layer)
-            layer = SequenceBatchNorm(time_major=True, name=f"sequence_wise_bn_{i}")(layer)
+                name=f"b{rnn_conf['rnn_type']}_{i}")]
+            layer += [SequenceBatchNorm(time_major=True, name=f"sequence_wise_bn_{i}")]
         else:
-            layer = rnn(rnn_conf["rnn_units"], activation=rnn_conf["rnn_activation"],
+            layer += [rnn(rnn_conf["rnn_units"], activation=rnn_conf["rnn_activation"],
                         dropout=rnn_conf["rnn_dropout"], return_sequences=True, use_bias=True,
-                        name=f"{rnn_conf['rnn_type']}_{i}")(layer)
-            layer = SequenceBatchNorm(time_major=False, name=f"sequence_wise_bn_{i}")(layer)
+                        name=f"{rnn_conf['rnn_type']}_{i}")]
+            layer += [SequenceBatchNorm(time_major=False, name=f"sequence_wise_bn_{i}")]
             if rnn_conf["rnn_rowconv"]:
-                layer = RowConv1D(filters=rnn_conf["rnn_units"],
+                layer += [RowConv1D(filters=rnn_conf["rnn_units"],
                                   future_context=rnn_conf["rnn_rowconv_context"],
-                                  name=f"row_conv_{i}")(layer)
+                                  name=f"row_conv_{i}")]
 
     # To batch major
     if rnn_conf["rnn_bidirectional"]:
-        layer = TransposeTimeMajor("transpose_to_batch_major")(layer)
+        layer += [TransposeTimeMajor("transpose_to_batch_major")]
 
     # FC Layers
     if fc_conf["fc_units"]:
         assert fc_conf["fc_dropout"] >= 0.0
 
         for idx, units in enumerate(fc_conf["fc_units"]):
-            layer = tf.keras.layers.Dense(units=units, activation=None,
-                                          use_bias=True, name=f"hidden_fc_{idx}")(layer)
-            layer = tf.keras.layers.BatchNormalization(name=f"hidden_fc_bn_{idx}")(layer)
-            layer = tf.keras.layers.ReLU(name=f"hidden_fc_relu_{idx}")(layer)
-            layer = tf.keras.layers.Dropout(fc_conf["fc_dropout"],
-                                            name=f"hidden_fc_dropout_{idx}")(layer)
+            layer += [tf.keras.layers.Dense(units=units, activation=None,
+                                          use_bias=True, name=f"hidden_fc_{idx}")]
+            layer += [tf.keras.layers.BatchNormalization(name=f"hidden_fc_bn_{idx}")]
+            layer += [tf.keras.layers.ReLU(name=f"hidden_fc_relu_{idx}")]
+            layer += [tf.keras.layers.Dropout(fc_conf["fc_dropout"],
+                                            name=f"hidden_fc_dropout_{idx}")]
 
-    return tf.keras.Model(inputs=features, outputs=layer, name=name)
+    return tf.keras.Sequential(layer)
 
 
 class DeepSpeech2CTC(CtcModel):

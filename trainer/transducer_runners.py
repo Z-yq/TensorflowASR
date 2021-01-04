@@ -115,7 +115,7 @@ class TransducerTrainer(BaseTrainer):
             try:
                 self.load_checkpoint()
             except:
-                logging.info('trainer resume failed')
+                logging.info('trainer resume failed,use init state')
             self.optimizer = tf.keras.optimizers.get(optimizer)
             if self.is_mixed_precision:
                 self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer, "dynamic")
