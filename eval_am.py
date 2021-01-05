@@ -31,9 +31,9 @@ class AM_Tester():
         batches = []
         for _ in range(self.config['running_config']['eval_steps_per_batches']):
             if self.am.model_type!='MultiTask':
-                features, wavs, input_length, labels, label_length = self.dg.eval_data_generator()
+                features, input_length, labels, label_length = self.dg.eval_data_generator()
                 input_length=np.expand_dims(input_length,-1)
-                batches.append((features, wavs, input_length, labels, label_length))
+                batches.append((features, input_length, labels, label_length))
             else:
                 features, _, _, input_length, _,_, _, _, py_label, _, txt_label,_ = self.dg.eval_data_generator()
                 input_length = np.expand_dims(input_length, -1)
