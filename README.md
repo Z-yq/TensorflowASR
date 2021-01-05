@@ -45,6 +45,8 @@ C++的demo已经提供。
 
 所有结果测试于 _`AISHELL TEST`_ 数据集.
 
+**由于最近修复了和优化了一些模型结构，以下预训练模型或许已经不适用，仅作一个对比实验结果参考。**
+
 **AM:**
 
 Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |txt CER|phoneme CER|Model Size|
