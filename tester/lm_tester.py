@@ -38,7 +38,7 @@ class LMTester(BaseTester):
                 index = j.index(self.model.end_id)
                 j = j[1:index]
 
-            score, ws, wd, wi = wer(i, j)
+            score, ws, wd, wi = wer(j, i)
             self.cer_s+=ws
             self.cer_d+=wd
             self.cer_i+=wi

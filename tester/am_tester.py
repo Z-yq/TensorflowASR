@@ -59,7 +59,7 @@ class AMTester(BaseTester):
                     i=i[:index]
                 index=j.index(self.text_featurizer.stop)
                 j=j[:index]
-            score, ws, wd, wi = wer(i, j)
+            score, ws, wd, wi = wer(j, i)
             self.cer_s+=ws
             self.cer_d+=wd
             self.cer_i+=wi
