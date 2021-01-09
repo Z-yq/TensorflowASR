@@ -2,7 +2,7 @@
 
 Demo For Tensorflow C to run pb file.
 
-Test On Tensorflow C 2.3.0
+Test On **Tensorflow C 2.3.0/Ubuntu 18.04/Centos 7**
 
 Mel_layer for AM feature extractor.
 
