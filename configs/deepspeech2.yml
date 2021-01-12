@@ -1,7 +1,7 @@
 
 
 model_config:
-  name: DeepSpeech2CTC #DeepSpeech2Transducer/DeepSpeech2CTC/DeepSpeech2LAS
+  name: DeepSpeech2Transducer #DeepSpeech2Transducer/DeepSpeech2CTC/DeepSpeech2LAS
   conv_conf:
     conv_type: 2
     conv_kernels: [[11, 41], [11, 21], [11, 11]]

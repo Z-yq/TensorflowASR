@@ -80,7 +80,7 @@ class TransducerTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
-        features, wavs, input_length, labels, label_length = batch
+        features,input_length, labels, label_length = batch
         pred_inp = labels
         target = labels[:, 1:]
         label_length -= 1

@@ -47,7 +47,7 @@ class LASTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, wavs, input_length, labels, label_length,guide_matrix= batch
+        features,  input_length, labels, label_length,guide_matrix= batch
         max_iter=tf.shape(labels)[1]
         self.model.maxinum_iterations = max_iter
         with tf.GradientTape() as tape:
