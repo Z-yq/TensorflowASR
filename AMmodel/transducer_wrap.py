@@ -1,11 +1,9 @@
 import os
-import collections
 import tensorflow as tf
-import collections
 from utils.tools import shape_list, get_shape_invariants, merge_repeated
 from utils.text_featurizers import TextFeaturizer
 from AMmodel.layers.time_frequency import Melspectrogram, Spectrogram
-
+from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
 
 class TransducerPrediction(tf.keras.Model):
     def __init__(self,
@@ -23,8 +21,7 @@ class TransducerPrediction(tf.keras.Model):
         self.lstm_cells = []
         # lstms units must equal (for using beam search)
         for i in range(num_lstms):
-            lstm = tf.keras.layers.LSTMCell(units=lstm_units,
-                                            )
+            lstm = LayerNormLSTMCell(units=lstm_units)
             self.lstm_cells.append(lstm)
         self.decoder_lstms = tf.keras.layers.RNN(tf.keras.layers.StackedRNNCells(
             self.lstm_cells, name="decoder_lstms"

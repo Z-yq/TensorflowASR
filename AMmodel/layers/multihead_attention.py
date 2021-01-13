@@ -109,7 +109,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         super().build(input_shape)
 
-    @tf.function(experimental_relax_shapes=True)
+   # @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=None, mask=None):
 
         # einsum nomenclature

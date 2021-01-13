@@ -66,8 +66,8 @@ learning_config:
     num_epochs: 2
     outdir: './deepspeech2-logs'
     log_interval_steps: 300
-    eval_interval_steps: 500
-    save_interval_steps: 500
+    eval_interval_steps: 10
+    save_interval_steps: 100
     guide_attention: True #for LAS
   redis_config:
     use_redis: False

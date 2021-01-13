@@ -9,7 +9,7 @@ from tensorflow_addons.seq2seq import BahdanauAttention
 from tensorflow_addons.seq2seq import Decoder
 from AMmodel.layers.decoder import dynamic_decode
 from AMmodel.layers.time_frequency import Spectrogram,Melspectrogram
-# from tensorflow_addons.seq2seq import dynamic_decode
+from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
 
 class LASConfig():
     def __init__(self,
@@ -327,13 +327,13 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
         super().__init__(**kwargs)
         self.training = training
         self.enable_tflite_convertible = enable_tflite_convertible
-        self.attention_lstm = tf.keras.layers.LSTMCell(
+        self.attention_lstm = LayerNormLSTMCell(
             units=config.decoder_lstm_units, name="attention_lstm_cell"
         )
         self.decoder_embedding = tf.keras.layers.Embedding(config.n_classes, config.embedding_hidden_size)
         lstm_cells = []
         for i in range(config.n_lstm_decoder):
-            lstm_cell = tf.keras.layers.LSTMCell(
+            lstm_cell = LayerNormLSTMCell(
                 units=config.decoder_lstm_units, name="lstm_cell_._{}".format(i)
             )
             lstm_cells.append(lstm_cell)
