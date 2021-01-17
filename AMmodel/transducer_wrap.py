@@ -21,11 +21,10 @@ class TransducerPrediction(tf.keras.Model):
         self.lstm_cells = []
         # lstms units must equal (for using beam search)
         for i in range(num_lstms):
-            lstm = LayerNormLSTMCell(units=lstm_units)
+            lstm = tf.keras.layers.LSTMCell(units=lstm_units,dropout=embed_dropout,recurrent_dropout=embed_dropout)
             self.lstm_cells.append(lstm)
-        self.decoder_lstms = tf.keras.layers.RNN(tf.keras.layers.StackedRNNCells(
-            self.lstm_cells, name="decoder_lstms"
-        ), return_sequences=True, return_state=True)
+        self.decoder_lstms = tf.keras.layers.RNN(
+            self.lstm_cells, return_sequences=True, return_state=True)
 
     def get_initial_state(self, input_sample):
 
@@ -138,6 +137,9 @@ class Transducer(tf.keras.Model):
                     trainable_kernel=speech_config['trainable_kernel']
                 )
             self.mel_layer.trainable = speech_config['trainable_kernel']
+        self.wav_info = speech_config['add_wav_info']
+        if self.wav_info:
+            assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
         self.kept_decode = None
         self.startid = 0
         self.endid = 1
@@ -164,8 +166,17 @@ class Transducer(tf.keras.Model):
         features, predicted=inputs
 
         if self.mel_layer is not None:
-            features = self.mel_layer(features)
-        enc = self.encoder(features, training=training)
+            if self.wav_info :
+                wav=features
+                features = self.mel_layer(features)
+            else:
+                features = self.mel_layer(features)
+            # print(inputs.shape)
+        if self.wav_info :
+            enc = self.encoder([features,wav], training=training)
+        else:
+            enc = self.encoder(features, training=training)
+
         pred = self.predict_net(predicted, training=training)
         outputs = self.joint_net([enc, pred], training=training)
 
@@ -219,6 +230,8 @@ class Transducer(tf.keras.Model):
     def perform_greedy(self,
                        features,
                        streaming=False):
+        if self.wav_info:
+            wav=features
         if self.mel_layer is not None:
             features = self.mel_layer(features)
 
@@ -226,8 +239,10 @@ class Transducer(tf.keras.Model):
         if self.kept_decode is not None:
             decoded = self.kept_decode
 
-
-        enc = self.encoder(features, training=False)  # [1, T, E]
+        if self.wav_info:
+            enc = self.encoder([features,wav], training=False)  # [1, T, E]
+        else:
+            enc = self.encoder(features, training=False)  # [1, T, E]
         enc = tf.squeeze(enc, axis=0)  # [T, E]
 
         T = tf.cast(tf.shape(enc)[0], dtype=tf.int32)

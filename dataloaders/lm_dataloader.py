@@ -102,8 +102,10 @@ class LM_DataLoader():
         for token, txt in zip(tokens, txts):
             # print(py,txt)
             if not self.check_valid(token, self.vocab_featurizer.vocab_array):
+                print('{} pinyin not all in token,continue'.format(txt))
                 continue
             if not self.check_valid(txt, self.word_featurizer.vocab_array):
+                print('{}  not all in token,continue'.format(txt))
                 continue
             # try:
             x_ = [self.vocab_featurizer.startid()]
@@ -214,5 +216,8 @@ class LM_DataLoader():
     def generator(self,train=True):
         while 1:
             x, y, features=self.generate(train)
+            if len(x)==0:
+                print('load data length zero,continue')
+                continue
             yield x,y,features
 

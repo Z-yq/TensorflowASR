@@ -160,14 +160,16 @@ class AM_DataLoader():
         max_label1 = 0
         for i in sample:
             wp, txt = i.strip().split('\t')
+            txt=txt.replace(' ','')
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
-                print('load data failed')
+                print('{} load data failed'.format(wp))
                 continue
             if len(data) < 400:
                 continue
             elif len(data) > self.speech_featurizer.sample_rate *  self.speech_config['wav_max_duration']:
+                print('{} duration out of wav_max_duration({})'.format(wp,self.speech_config['wav_max_duration']))
                 continue
             if self.speech_config['only_chinese']:
                 txt= self.only_chinese(txt)
@@ -184,12 +186,14 @@ class AM_DataLoader():
 
             py = self.text_to_vocab(txt)
             if not self.check_valid(py, self.text_featurizer.vocab_array):
+                print(' {} txt pinyin {} not all in tokens,continue'.format(txt,py))
                 continue
             text_feature = self.text_featurizer.extract(py)
 
             if in_len < len(text_feature):
+                print('{} feature length < pinyin length,continue'.format(wp))
                 continue
-            max_input = max(max_input, len(speech_feature))
+            max_input = max(max_input, in_len)
             max_label1 = max(max_label1, len(text_feature))
             speech_features.append(speech_feature)
             input_length.append(in_len)
@@ -272,11 +276,12 @@ class AM_DataLoader():
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
-                print('load data failed')
+                print('{} load data failed'.format(wp))
                 continue
             if len(data) < 400:
                 continue
             elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
+                print('{} duration out of wav_max_duration({})'.format(wp, self.speech_config['wav_max_duration']))
                 continue
             if self.speech_config['only_chinese']:
                 txt= self.only_chinese(txt)
@@ -293,12 +298,14 @@ class AM_DataLoader():
 
             py = self.text_to_vocab(txt)
             if not self.check_valid(py,self.text_featurizer.vocab_array):
+                print(' {} txt pinyin {} not all in tokens,continue'.format(txt, py))
                 continue
             text_feature = self.text_featurizer.extract(py)
 
             if in_len < len(text_feature):
+                print('{} feature length < pinyin length,continue'.format(wp))
                 continue
-            max_input = max(max_input, len(speech_feature))
+            max_input = max(max_input,in_len)
             max_label1 = max(max_label1, len(text_feature))
             speech_features.append(speech_feature)
             input_length.append(in_len)
@@ -338,7 +345,7 @@ class AM_DataLoader():
 
                 if in_len < len(text_feature):
                     continue
-                max_input = max(max_input, len(speech_feature))
+                max_input = max(max_input, in_len)
                 max_label1 = max(max_label1, len(text_feature))
                 speech_features.append(speech_feature)
 
@@ -373,6 +380,7 @@ class AM_DataLoader():
         while 1:
             x,  input_length, labels, label_length=self.generate(train)
             if x.shape[0]==0:
+                print('load data length zero,continue')
                 continue
             if self.LAS:
                 guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),

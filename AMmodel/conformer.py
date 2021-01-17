@@ -1,12 +1,13 @@
 
 import tensorflow as tf
 
-from AMmodel.layers.time_frequency import Melspectrogram
+
+from AMmodel.wav_model import WavePickModel
 from AMmodel.transducer_wrap import Transducer
 from AMmodel.ctc_wrap import CtcModel
 from AMmodel.las_wrap import LAS,LASConfig
 from utils.tools import merge_two_last_dims
-from AMmodel.layers.positional_encoding import PositionalEncoding
+from AMmodel.layers.switchnorm import SwitchNormalization
 from AMmodel.layers.multihead_attention import MultiHeadAttention
 
 class GLU(tf.keras.layers.Layer):
@@ -117,7 +118,7 @@ class MHSAModule(tf.keras.layers.Layer):
                  name="mhsa_module",
                  **kwargs):
         super(MHSAModule, self).__init__(name=name, **kwargs)
-        self.pc = PositionalEncoding()
+        # self.pc = PositionalEncoding()
         self.ln = tf.keras.layers.LayerNormalization()
         self.mha = MultiHeadAttention(head_size=head_size, num_heads=num_heads)
         self.do = tf.keras.layers.Dropout(dropout)
@@ -125,8 +126,8 @@ class MHSAModule(tf.keras.layers.Layer):
 
     # @tf.function(experimental_relax_shapes=True)
     def call(self, inputs, training=False, **kwargs):
-        outputs = self.pc(inputs)
-        outputs = self.ln(outputs, training=training)
+        # outputs = self.pc(inputs)
+        outputs = self.ln(inputs, training=training)
         outputs = self.mha([outputs, outputs, outputs], training=training)
         outputs = self.do(outputs, training=training)
         outputs = self.res_add([inputs, outputs])
@@ -160,7 +161,7 @@ class ConvModule(tf.keras.layers.Layer):
             filters=2 * input_dim, kernel_size=kernel_size, strides=1,
             padding="same", depth_multiplier=1, name="dw_conv"
         )
-        self.bn = tf.keras.layers.BatchNormalization()
+        self.bn =SwitchNormalization()
         self.swish = tf.keras.layers.Activation(
             tf.keras.activations.swish, name="swish_activation")
         self.pw_conv_2 = tf.keras.layers.Conv1D(filters=input_dim, kernel_size=1, strides=1,
@@ -247,14 +248,21 @@ class ConformerEncoder(tf.keras.Model):
                  kernel_size=32,
                  fc_factor=0.5,
                  dropout=0.0,
+                 add_wav_info=False,
+                 hop_size=80,
                  name="conformer_encoder",
                  **kwargs):
         super(ConformerEncoder, self).__init__(name=name, **kwargs)
+        self.dmodel=dmodel
+        self.reduction_factor=reduction_factor
         self.conv_subsampling = ConvSubsampling(
             odim=dmodel, reduction_factor=reduction_factor,
             dropout=dropout
         )
         self.conformer_blocks = []
+        self.add_wav_info=add_wav_info
+        if self.add_wav_info:
+            self.wav_layer=WavePickModel(dmodel,hop_size)
         for i in range(num_blocks):
             conformer_block = ConformerBlock(
                 input_dim=dmodel,
@@ -270,7 +278,14 @@ class ConformerEncoder(tf.keras.Model):
     # @tf.function()
     def call(self, inputs, training=False, **kwargs):
         # input with shape [B, T, V1, V2]
-        outputs = self.conv_subsampling(inputs, training=training)
+        if self.add_wav_info:
+            mel_inputs, wav_inputs = inputs
+            mel_outputs = self.conv_subsampling(mel_inputs, training=training)
+            wav_outputs = self.wav_layer(wav_inputs, training=training)
+            outputs = mel_outputs+wav_outputs
+
+        else:
+            outputs = self.conv_subsampling(inputs, training=training)
         for cblock in self.conformer_blocks:
             outputs = cblock(outputs, training=training)
 
@@ -313,6 +328,8 @@ class ConformerTransducer(Transducer):
                 kernel_size=kernel_size,
                 fc_factor=fc_factor,
                 dropout=dropout,
+                add_wav_info=speech_config['add_wav_info'],
+                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000)*reduction_factor,
             ),
             vocabulary_size=vocabulary_size,
             embed_dim=embed_dim,
@@ -346,7 +363,10 @@ class ConformerCTC(CtcModel):
                 num_heads=num_heads,
                 kernel_size=kernel_size,
                 fc_factor=fc_factor,
+
                 dropout=dropout,
+                add_wav_info=speech_config['add_wav_info'],
+                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000)*reduction_factor,
             ),num_classes=vocabulary_size,name=name,speech_config=speech_config)
         self.time_reduction_factor = reduction_factor
 class ConformerLAS(LAS):
@@ -369,7 +389,9 @@ class ConformerLAS(LAS):
                 kernel_size=config['kernel_size'],
                 fc_factor=config['fc_factor'],
                 dropout=config['dropout'],
-                name=config['name']
+                name=config['name'],
+                add_wav_info=speech_config['add_wav_info'],
+                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000)*config['reduction_factor'],
             ),config=decoder_config,training=training,enable_tflite_convertible=enable_tflite_convertible,
         speech_config=speech_config
         )

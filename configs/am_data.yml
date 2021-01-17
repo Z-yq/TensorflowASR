@@ -3,6 +3,7 @@ speech_config:
   use_mel_layer: True
   mel_layer_type: Melspectrogram #Spectrogram
   trainable_kernel: False #support train model
+  add_wav_info: True
   sample_rate: 16000
   frame_ms: 25
   stride_ms: 10
@@ -16,7 +17,7 @@ speech_config:
   normalize_feature: True
   normalize_per_feature: False
   reduction_factor: 4 #should keep the same with model_config, DS2 : time_reduction_factor *= s[0] for s in 'conv_strides'
-  train_list: './test_list.txt'
+  train_list: './train_list.txt'
   eval_list: './am_eval_list.txt'
   wav_max_duration: 7 # s
   only_chinese: True
@@ -60,14 +61,14 @@ learning_config:
     epsilon: 1e-9
 
   running_config:
-    batch_size: 4
+    batch_size: 8
     train_steps_per_batches: 10
     eval_steps_per_batches: 10
-    num_epochs: 2
-    outdir: './deepspeech2-logs'
+    num_epochs: 10
+    outdir: './transducer-logs'
     log_interval_steps: 300
-    eval_interval_steps: 10
-    save_interval_steps: 100
+    eval_interval_steps: 500
+    save_interval_steps: 500
     guide_attention: True #for LAS
   redis_config:
     use_redis: False

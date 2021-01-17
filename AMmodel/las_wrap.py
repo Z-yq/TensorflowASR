@@ -333,7 +333,7 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
         self.decoder_embedding = tf.keras.layers.Embedding(config.n_classes, config.embedding_hidden_size)
         lstm_cells = []
         for i in range(config.n_lstm_decoder):
-            lstm_cell = LayerNormLSTMCell(
+            lstm_cell = tf.keras.layers.LSTMCell(
                 units=config.decoder_lstm_units, name="lstm_cell_._{}".format(i)
             )
             lstm_cells.append(lstm_cell)
@@ -567,7 +567,9 @@ class LAS(tf.keras.Model):
                                              trainable_kernel=speech_config['trainable_kernel']
                                              )
             self.mel_layer.trainable = speech_config['trainable_kernel']
-
+        self.wav_info = speech_config['add_wav_info']
+        if self.wav_info:
+            assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
         self.use_window_mask = False
         self.maximum_iterations = 1000 if training else 50
         self.enable_tflite_convertible = enable_tflite_convertible
@@ -629,12 +631,18 @@ class LAS(tf.keras.Model):
         # Encoder Step.
         # input_lengths=tf.squeeze(input_lengths,-1)
         inputs, input_lengths=inputs
+        if self.wav_info:
+            wav=inputs
         if self.mel_layer is not None:
             inputs=self.mel_layer(inputs)
-        
-        encoder_hidden_states = self.encoder(
-            inputs, training=training
-        )
+        if self.wav_info:
+            encoder_hidden_states = self.encoder(
+                [inputs,wav], training=training
+            )
+        else:
+            encoder_hidden_states = self.encoder(
+                inputs, training=training
+            )
         batch_size = tf.shape(encoder_hidden_states)[0]
         alignment_size = tf.shape(encoder_hidden_states)[1]
 
@@ -702,11 +710,18 @@ class LAS(tf.keras.Model):
             # Encoder Step.
             input_lengths=tf.squeeze(input_lengths,-1)
 
+            if self.wav_info:
+                wav = inputs
             if self.mel_layer is not None:
-                inputs=self.mel_layer(inputs)
-            encoder_hidden_states = self.encoder.call(
-                inputs, training=False
-            )
+                inputs = self.mel_layer(inputs)
+            if self.wav_info:
+                encoder_hidden_states = self.encoder(
+                    [inputs, wav], training=False
+                )
+            else:
+                encoder_hidden_states = self.encoder(
+                    inputs, training=False
+                )
             batch_size = tf.shape(encoder_hidden_states)[0]
             alignment_size = tf.shape(encoder_hidden_states)[1]
 
