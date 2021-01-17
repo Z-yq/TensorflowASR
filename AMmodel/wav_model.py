@@ -118,14 +118,14 @@ class WavePickModel(tf.keras.layers.Layer):
                  ]
         for i in range(1,len(scales)):
             layers+=[
-                tf.keras.layers.SeparableConv1D(filters=min((32*(i+1)),dout), kernel_size=3, strides=scales[i],padding='same', kernel_regularizer=None, ),
+                tf.keras.layers.Conv1D(filters=min((32*(i+1)),dout), kernel_size=3, strides=scales[i],padding='same', kernel_regularizer=None, ),
                 TFResidualStack(filters=min((32*(i+1)),dout)),
             ]
         layers+=[tf.keras.layers.Conv1D(filters=dout, kernel_size=7, strides=1, padding='same', kernel_regularizer=None, ),
                ]
         self.generator=tf.keras.Sequential(layers)
 
-
+    # @tf.function(input_signature=[tf.TensorSpec([None, None, 1])])
     def call(self,x,training=True):
         return self.generator(x,training=training)
     def get_scales(self,num):
