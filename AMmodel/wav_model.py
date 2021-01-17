@@ -128,14 +128,20 @@ class WavePickModel(tf.keras.layers.Layer):
     # @tf.function(input_signature=[tf.TensorSpec([None, None, 1])])
     def call(self,x,training=True):
         return self.generator(x,training=training)
-    def get_scales(self,num):
-        scale=[]
+
+    def get_scales(self, num):
+        scale = []
         while 1:
-            for i in range(2,100):
-                if num%i==0:
-                    num=num//i
+            for i in range(2, 100):
+                if num % i == 0:
+                    num = num // i
                     scale.append(i)
                     break
-            if num==1:
+            if num == 1:
                 break
+        while len(scale) > 4:
+            new_scale = scale[2:]
+            new_scale.append(scale[0] * scale[1])
+            scale = new_scale
+            scale.sort()
         return scale[::-1]
