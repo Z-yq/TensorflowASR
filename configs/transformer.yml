@@ -2,15 +2,15 @@ model_config:
   name: Transformer
   num_layers: 3  #for encoder and decoder
   d_model: 128
-  enc_embedding_dim: 64
-  dec_embedding_dim: 64
+  enc_embedding_dim: 128
+  dec_embedding_dim: 128
   num_heads: 4
   dff: 256
   pe_input: 1024
   pe_target: 1024
   rate: 0.1
-  one2one: False
-  include_decoder: True
+  one2one: True
+  include_decoder: False
 optimizer_config:
   learning_rate: 0.0001
   beta_1: 0.9
