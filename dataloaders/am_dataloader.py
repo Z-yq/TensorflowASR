@@ -193,7 +193,7 @@ class AM_DataLoader():
             if in_len < len(text_feature):
                 print('{} feature length < pinyin length,continue'.format(wp))
                 continue
-            max_input = max(max_input, in_len)
+            max_input = max(max_input, len(speech_feature))
             max_label1 = max(max_label1, len(text_feature))
             speech_features.append(speech_feature)
             input_length.append(in_len)
@@ -305,7 +305,7 @@ class AM_DataLoader():
             if in_len < len(text_feature):
                 print('{} feature length < pinyin length,continue'.format(wp))
                 continue
-            max_input = max(max_input,in_len)
+            max_input = max(max_input,len(speech_feature))
             max_label1 = max(max_label1, len(text_feature))
             speech_features.append(speech_feature)
             input_length.append(in_len)
@@ -345,7 +345,7 @@ class AM_DataLoader():
 
                 if in_len < len(text_feature):
                     continue
-                max_input = max(max_input, in_len)
+                max_input = max(max_input, len(speech_feature))
                 max_label1 = max(max_label1, len(text_feature))
                 speech_features.append(speech_feature)
 
