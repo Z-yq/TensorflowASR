@@ -176,7 +176,7 @@ LM 速度测试(基于Python),12个字的响应速度 **CPU**:
     am.load_model(training=False)
     
     lm=LM(lm_config)
-    lm.load_model()
+    lm.load_model(training=False)
     
     am_result=am.predict(wav_path)
     if am.model_type=='Transducer':
