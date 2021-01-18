@@ -21,7 +21,7 @@ class TransducerPrediction(tf.keras.Model):
         self.lstm_cells = []
         # lstms units must equal (for using beam search)
         for i in range(num_lstms):
-            lstm = tf.keras.layers.LSTMCell(units=lstm_units,dropout=embed_dropout,recurrent_dropout=embed_dropout)
+            lstm = LayerNormLSTMCell(units=lstm_units,dropout=embed_dropout,recurrent_dropout=embed_dropout)
             self.lstm_cells.append(lstm)
         self.decoder_lstms = tf.keras.layers.RNN(
             self.lstm_cells, return_sequences=True, return_state=True)
