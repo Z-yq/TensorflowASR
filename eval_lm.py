@@ -15,6 +15,7 @@ class LM_Tester():
 
         self.runner = lm_tester.LMTester(self.config['running_config'],self.config['model_config']['one2one'])
         self.runner.set_progbar(self.dg.eval_per_epoch_steps())
+        self.runner.set_all_steps(self.dg.eval_per_epoch_steps())
         self.runner.compile(self.model)
     def make_eval_batch_data(self):
         batches = []

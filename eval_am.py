@@ -26,6 +26,7 @@ class AM_Tester():
 
         self.STT = self.am.model
         self.runner.set_progbar(self.dg.eval_per_epoch_steps())
+        self.runner.set_all_steps(self.dg.eval_per_epoch_steps())
         self.runner.compile(self.STT)
     def make_eval_batch_data(self):
         batches = []
