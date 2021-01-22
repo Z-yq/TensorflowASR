@@ -123,28 +123,27 @@ class AM():
         f,c=self.speech_feature.compute_feature_dim()
 
 
-        try:
-            if not training:
-                if self.text_config['model_type'] != 'LAS':
-                    if self.model.mel_layer is not None:
-                        self.model._build([3,16000,1])
-                        self.model.return_pb_function([None,None,1])
-                    else:
-                        self.model._build([3, 80, f, c])
-                        self.model.return_pb_function([None,None, f, c])
 
+        if not training:
+            if self.text_config['model_type'] != 'LAS':
+                if self.model.mel_layer is not None:
+                    self.model._build([3,16000,1])
+                    self.model.return_pb_function([None,None,1])
                 else:
-                    if self.model.mel_layer is not None:
-                        self.model._build([3,16000,1], training)
-                        self.model.return_pb_function([None,None,1])
-                    else:
+                    self.model._build([3, 80, f, c])
+                    self.model.return_pb_function([None,None, f, c])
 
-                        self.model._build([2, 80, f, c], training)
-                        self.model.return_pb_function([None,None, f, c])
-                self.load_checkpoint(self.config)
+            else:
+                if self.model.mel_layer is not None:
+                    self.model._build([3,16000,1], training)
+                    self.model.return_pb_function([None,None,1])
+                else:
 
-        except:
-            print('am loading model failed.')
+                    self.model._build([2, 80, f, c], training)
+                    self.model.return_pb_function([None,None, f, c])
+            self.load_checkpoint(self.config)
+
+
     def convert_to_pb(self,export_path):
         import tensorflow as tf
         concrete_func = self.model.recognize_pb.get_concrete_function()

@@ -15,12 +15,11 @@ class LM():
     def load_model(self,training=True):
         self.model = Transformer(**self.model_config)
 
-        try:
-            if not training:
-                self.model._build()
-                self.load_checkpoint()
-        except:
-            logging.info('lm loading model failed.')
+
+        if not training:
+            self.model._build()
+            self.load_checkpoint()
+
         self.model.start_id=self.word_featurizer.start
         self.model.end_id=self.word_featurizer.stop
 

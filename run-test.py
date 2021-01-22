@@ -48,12 +48,12 @@ class ASR():
 if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES']='2'
-    am_config=UserConfig(r'./conformer-transducer-logs/am_data.yml',r'./conformer-transducer-logs/conformer.yml')
-    lm_config = UserConfig(r'./transformer-logs/lm_data.yml', r'./transformer-logs/transformer.yml')
+    am_config=UserConfig(r'./conformerCTC(M)/am_data.yml',r'./conformerCTC(M)/conformerM.yml')
+    lm_config = UserConfig(r'./transformer-logs/lm_data.yml', r'./transformer-logs/transformerO2OE.yml')
     asr=ASR(am_config,lm_config)
 
-    a,b=asr.stt('BAC009S0724W0121.wav')
+    a,b=asr.stt(r'BAC009S0764W0121.wav')
     print(a)
     print(b)
-    print(asr.am_test('BAC009S0724W0121.wav'))
+    print(asr.am_test(r'BAC009S0764W0121.wav'))
     print(asr.lm_test('中介协会'))

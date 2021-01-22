@@ -3,9 +3,9 @@ import tensorflow as tf
 
 
 from AMmodel.wav_model import WavePickModel
-from AMmodel.transducer_wrap import Transducer
-from AMmodel.ctc_wrap import CtcModel
-from AMmodel.las_wrap import LAS,LASConfig
+from AMmodel.transducer_wrap_cfm import Transducer
+from AMmodel.ctc_wrap_cfm import CtcModel
+from AMmodel.las_wrap_cfm import LAS,LASConfig
 from utils.tools import merge_two_last_dims
 from AMmodel.layers.switchnorm import SwitchNormalization
 from AMmodel.layers.multihead_attention import MultiHeadAttention
@@ -286,10 +286,11 @@ class ConformerEncoder(tf.keras.Model):
 
         else:
             outputs = self.conv_subsampling(inputs, training=training)
+        encoder_outputs=[]
         for cblock in self.conformer_blocks:
             outputs = cblock(outputs, training=training)
-
-        return outputs
+            encoder_outputs.append(outputs)
+        return encoder_outputs
 
     def get_config(self):
         conf = super(ConformerEncoder, self).get_config()
@@ -396,6 +397,34 @@ class ConformerLAS(LAS):
         speech_config=speech_config
         )
         self.time_reduction_factor = config['reduction_factor']
+class BeamCNN(tf.keras.Model):
+    def __init__(self,input_dim,
+                 dmodel,
+                 dropout=0.0,
+                 fc_factor=0.5,
+                 head_size=144,
+                 num_heads=4,
+                 kernel_size=32,
+                 name="Beam_block",):
+        super(BeamCNN, self).__init__()
+        self.input_dim=input_dim
+        self.fc=tf.keras.layers.Dense(dmodel)
+        self.block=ConformerBlock(dmodel,
+                 dropout=dropout,
+                 fc_factor=fc_factor,
+                 head_size=head_size,
+                 num_heads=num_heads,
+                 kernel_size=kernel_size,
+                 name=name,)
+        self.out_cnn=tf.keras.layers.Conv1D(input_dim,kernel_size=kernel_size,padding='same')
+    def _build(self):
+        self(tf.ones([1,30,self.input_dim]))
+    def call(self,x,training=False):
+        outputs=self.fc(x,training=training)
+        outputs=self.block(outputs,training=training)
+        outputs=self.out_cnn(outputs,training=training)
+        return outputs
+
 if __name__ == '__main__':
     from utils.user_config import UserConfig
     from utils.text_featurizers import TextFeaturizer

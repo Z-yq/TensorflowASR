@@ -72,10 +72,11 @@ class CtcModel(tf.keras.Model):
                 inputs=self.mel_layer(inputs)
             # print(inputs.shape)
         if self.wav_info :
-            outputs = self.encoder([inputs,wav], training=training)
+            enc_outputs = self.encoder([inputs,wav], training=training)
         else:
-            outputs = self.encoder(inputs, training=training)
-        outputs = self.fc(outputs, training=training)
+            enc_outputs = self.encoder(inputs, training=training)
+        outputs = self.fc(enc_outputs, training=training)
+
         return outputs
 
     def return_pb_function(self,shape,beam=False):
