@@ -57,8 +57,9 @@ class AMTester(BaseTester):
                 if self.text_featurizer.stop in i:
                     index=i.index(self.text_featurizer.stop)
                     i=i[:index]
-                index=j.index(self.text_featurizer.stop)
-                j=j[:index]
+                if self.text_featurizer.stop in j:
+                    index=j.index(self.text_featurizer.stop)
+                    j=j[:index]
             score, ws, wd, wi = wer(j, i)
             self.cer_s+=ws
             self.cer_d+=wd
