@@ -53,16 +53,14 @@ C++的demo已经提供。
 Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |phoneme CER(%)|Params Size|RTF|
 ----------|--------------------|-----------------------------------------------|----|------------------|-----------|---------|-----|
 ConformerCTC(M)|True/False|pan.baidu.com/s/1NPk17DUr0-lBgwCkC5dFuQ|7qmd|aishell-1(20 epochs)| 6.2/5.1| 32M|0.114|
-
+ConformerCTS(S)|True/False|pan.baidu.com/s/1mHR2RryT7Rw0D4I9caY0QQ|7g3n|aishell-1(20 epochs)| 9.1/8.7| 10M|0.056|
 **LM:**
 
 Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|RTF|
 ---------|----|------|----|-------|------|----------|-----------|-----|
 TransformerO2OE|True(False)|pan.baidu.com/s/1X11OE_sk7yNTjtDpU7sfvA|sxrw|aishell-1 text(30 epochs)|4.4|43M|10M|0.06|
 TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|0.13|
-Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|0.31|
-TransformerPunc|False(True)|pan.baidu.com/s/1umwMP2nIzr25NnvG3LTRvw|7ctd|翻译文本|-|76M|30M|0.11|
-
+Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
 
 **快速使用：**
 
