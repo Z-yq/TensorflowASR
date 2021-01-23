@@ -44,38 +44,22 @@ detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppIn
 
 All test on _`AISHELL TEST`_ datasets.
 
+RTF(Real Time Factor) test on CPU(1 core)
+
 **AM:**
 
-Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |txt CER|phoneme CER|Model Size|
-----------|--------------------|-----------------------------------------------|----|------------------|-------|-----------|---------|
-MultiTask |False/False|pan.baidu.com/s/1nDDqcJXBbpFJASYz_U8FfA        |ucqf|aishell2(10 epochs)|10.4   |8.3        |109M|
-ConformerRNNT(S)|True/True|pan.baidu.com/s/1bdqeLDBHQ_XmgNuUr6mflw|fqvf|aishell2(10 epochs)|-|9.7|61M|
-ConformerCTC(S)|True/True|pan.baidu.com/s/1sh2bUm1HciE6Fu7PHUfRGA|jntv|aishell2(10 epochs)|-|9.9|46M|
-ConformerCTC2(S)|True/False|pan.baidu.com/s/12hsjq-lWudeaQzQomV-PDw|ifm6|aishell2(10 epochs)|-|8.1|46M|
-ConformerCTC3(S)|False/False|pan.baidu.com/s/1zKDgMHfpOhw10pOSWmtLrQ|gmr5|aishell2(10 epochs)|-|7.0|46M|
+Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |phoneme CER(%)|Params Size|RTF|
+----------|--------------------|-----------------------------------------------|----|------------------|-----------|---------|-----|
+ConformerCTC(M)|True/False|pan.baidu.com/s/1NPk17DUr0-lBgwCkC5dFuQ|7qmd|aishell-1(20 epochs)| 6.2/5.1| 32M|0.114|
 
 **LM:**
 
-Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|
----------|----|------|----|-------|------|----------|-----------|
-TransformerO2OE|True(False)|pan.baidu.com/s/1lyqHGacYd7arBrJtlTFdTw|kw0y|aishell2 text(98k steps)|4.4|200M|52M|
-TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|
-Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|
-TransformerPunc|False(True)|pan.baidu.com/s/1umwMP2nIzr25NnvG3LTRvw|7ctd|translation task texts|-|76M|30M|
-**Speed:**
-
-AM Speed Test(Python), a ~4.1 seconds wav on **CPU**:
-
-|CTC    |Transducer|LAS  |
-|-------|----------|-----|
-|150ms  |350ms     |280ms|
-
-LM Speed Test(Python),12 words on **CPU**:
-
-|O2O-Encoder-Decoder|O2O-Encoder|Encoder-Decoder|
-|-------------------|-----------|---------------|
-|              100ms|       20ms|          300ms|
-
+Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|RTF|
+---------|----|------|----|-------|------|----------|-----------|-----|
+TransformerO2OE|True(False)|pan.baidu.com/s/1X11OE_sk7yNTjtDpU7sfvA|sxrw|aishell-1 text(30 epochs)|4.4|43M|10M|0.06|
+TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|0.13|
+Transformer|True(True)|pan.baidu.com/s/1W3HLNNGL3ceJfoxb0P7RMw|qeet|aishell2 text(10k steps)|8.6|233M|61M|0.31|
+TransformerPunc|False(True)|pan.baidu.com/s/1umwMP2nIzr25NnvG3LTRvw|7ctd|翻译文本|-|76M|30M|0.11|
 
 ## Community
 welcome to join 

@@ -7,3 +7,7 @@
 *.h5
 *.npy
 *.yml
+*.data-00000-of-00001
+*.index
+*.meta
+*.json

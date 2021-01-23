@@ -28,7 +28,7 @@ class LM_Trainer():
         self.model = lm.model
 
         all_train_step = self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs']
-        lr = CustomSchedule(config['model_config']['dmodel'], warmup_steps=int(all_train_step * 0.1))
+        lr = CustomSchedule(config['model_config']['d_model'], warmup_steps=int(all_train_step * 0.1))
         config['optimizer_config']['learning_rate'] = lr
 
         self.optimizer = tf.keras.optimizers.Adamax(**config['optimizer_config'])
@@ -73,8 +73,10 @@ class LM_Trainer():
 if __name__ == '__main__':
     import argparse
     parse = argparse.ArgumentParser()
-    parse.add_argument('--data_config', type=str, default='./configs/lm_data.yml', help='the am data config path')
-    parse.add_argument('--model_config', type=str, default='./configs/transformer.yml', help='the am model config path')
+    parse.add_argument('--data_config', type=str, default='./transformer-logs/lm_data.yml',
+                       help='the lm data config path')
+    parse.add_argument('--model_config', type=str, default='./transformer-logs/transformerO2OE.yml',
+                       help='the lm model config path')
     args = parse.parse_args()
 
     config = UserConfig(args.data_config,args.model_config)
