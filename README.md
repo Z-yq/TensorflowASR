@@ -6,7 +6,7 @@
 </p>
 </h1>
 <h2 align="center">
-<p>集成了Tensorflow 2版本的端到端语音识别模型</p>
+<p>集成了Tensorflow 2版本的端到端语音识别模型，并且RTF(实时率)在0.1左右</p>
 </h2>
 <p align="center">
 目前集成了中文的CTC\Transducer\LAS 三种结构
