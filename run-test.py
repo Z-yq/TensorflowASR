@@ -52,6 +52,7 @@ class ASR():
 
 
 if __name__ == '__main__':
+    import time
     # USE CPU:
     # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     # USE one GPU:
@@ -63,8 +64,29 @@ if __name__ == '__main__':
     lm_config = UserConfig(r'./transformer-logs/lm_data.yml', r'./transformer-logs/transformerO2OE.yml')
     asr = ASR(am_config, lm_config)
 
+    # first inference will be slow,it is normal
+    s=time.time()
     a, b = asr.stt(r'BAC009S0764W0121.wav')
+    e=time.time()
     print(a)
     print(b)
+    print('asr.stt first infenrence cost time:',e-s)
+
+    # now it's OK
+    s = time.time()
+    a, b = asr.stt(r'BAC009S0764W0121.wav')
+    e = time.time()
+    print(a)
+    print(b)
+    print('asr.stt infenrence cost time:', e - s)
+    s=time.time()
     print(asr.am_test(r'BAC009S0764W0121.wav'))
+    e=time.time()
+    print('asr.am_test cost time:',e-s)
+    s=time.time()
     print(asr.lm_test('中介协会'))
+    e=time.time()
+    print('asr.lm_test cost time:',e-s)
+
+    # time cost test:
+

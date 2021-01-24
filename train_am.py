@@ -46,7 +46,7 @@ class AM_Trainer():
             self.runner=las_runners.LASTrainer(self.dg.speech_featurizer,self.dg.text_featurizer,self.config['running_config'])
             self.dg.LAS=True
         elif self.am.model_type == 'MultiTask':
-            self.runner = multi_runners.MultiTaskLASTrainer(self.dg.speech_featurizer, self.dg.token4_featurizer,
+            self.runner = multi_runners.MultiTaskCTCTrainer(self.dg.speech_featurizer,
                                                  self.config['running_config'])
 
 
@@ -84,18 +84,17 @@ class AM_Trainer():
 
 
     def train(self):
-        if self.am.model_type!='MultiTask':
-            train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                           self.dg.return_data_types(),
-                                                            self.dg.return_data_shape(),
-                                                            args=(True,))
-            eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                           self.dg.return_data_types(),
-                                                           self.dg.return_data_shape(),
-                                                           args=(False,))
-            self.runner.set_datasets(train_datasets, eval_datasets)
-        else:
-            self.runner.set_datasets(self.dg.generator(True), self.dg.generator(False))
+
+        train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                       self.dg.return_data_types(),
+                                                        self.dg.return_data_shape(),
+                                                        args=(True,))
+        eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                       self.dg.return_data_types(),
+                                                       self.dg.return_data_shape(),
+                                                       args=(False,))
+        self.runner.set_datasets(train_datasets, eval_datasets)
+
         while 1:
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():
@@ -108,7 +107,7 @@ if __name__ == '__main__':
 
     parse=argparse.ArgumentParser()
     parse.add_argument('--data_config', type=str, default='./configs/am_data.yml', help='the am data config path')
-    parse.add_argument('--model_config', type=str, default='./configs/conformerS.yml', help='the am model config path')
+    parse.add_argument('--model_config', type=str, default='./configs/MultiConformer.yml', help='the am model config path')
     args=parse.parse_args()
 
     config=UserConfig(args.data_config,args.model_config)

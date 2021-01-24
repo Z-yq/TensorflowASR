@@ -37,20 +37,20 @@ augments_config:
     SNR: [0,15]
     noises: './noise'
   masking:
-    active: True
+    active: False
     zone: (0.1,0.9)
     mask_ratio: 0.3
-    mask_with_noise: True
+    mask_with_noise: False
 
   pitch:
-    active: True
+    active: False
     zone: (0.0,1.0)
     sample_rate: 16000
     factor: (-1,3)
 
   speed:
-    active: True
-    factor: (0.5,2)
+    active: False
+    factor: (0.9,1.2)
 
 learning_config:
 
@@ -65,7 +65,7 @@ learning_config:
     train_steps_per_batches: 10
     eval_steps_per_batches: 10
     num_epochs: 10
-    outdir: './transducer-logs'
+    outdir: './multitask-logs'
     log_interval_steps: 300
     eval_interval_steps: 500
     save_interval_steps: 500

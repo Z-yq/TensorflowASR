@@ -283,7 +283,6 @@ class ConformerEncoder(tf.keras.Model):
             mel_outputs = self.conv_subsampling(mel_inputs, training=training)
             wav_outputs = self.wav_layer(wav_inputs, training=training)
             outputs = mel_outputs+wav_outputs
-
         else:
             outputs = self.conv_subsampling(inputs, training=training)
         encoder_outputs=[]
@@ -420,9 +419,10 @@ class BeamCNN(tf.keras.Model):
     def _build(self):
         self(tf.ones([1,30,self.input_dim]))
     def call(self,x,training=False):
-        outputs=self.fc(x,training=training)
-        outputs=self.block(outputs,training=training)
-        outputs=self.out_cnn(outputs,training=training)
+        fc_outputs=self.fc(x,training=training)
+        outputs=self.out_cnn(fc_outputs,training=training)
+        block_outputs=self.block(fc_outputs,training=training)
+        outputs+=self.out_cnn(block_outputs,training=training)
         return outputs
 
 if __name__ == '__main__':
