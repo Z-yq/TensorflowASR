@@ -23,7 +23,7 @@ class MultiTaskTester(BaseTester):
 
         x, input_length, py_label = batch
 
-        pred_decode = self.model.recognize_pb(x ,input_length)
+        pred_decode = self.model.recognize_pb(x ,input_length)[0]
 
 
         pred_decode = tf.clip_by_value(pred_decode, 0, self.text3_featurizer.num_classes)
@@ -37,7 +37,6 @@ class MultiTaskTester(BaseTester):
 
             while self.text3_featurizer.pad in j:
                 j.remove(self.text3_featurizer.pad)
-
             score, ws, wd, wi = wer(j, i)
             self.p_cer_s += ws
             self.p_cer_d += wd

@@ -240,7 +240,7 @@ class MultiTask_DataLoader():
             max_label_words = max(max_label_words, len(word_text_feature))
             max_label_phone = max(max_label_phone, len(phone_text_feature))
             max_label_py = max(max_label_py, len(py_text_feature))
-            max_wav = max(max_wav, len(data))
+            max_input = max(max_input, len(speech_feature))
 
             speech_features.append(speech_feature)
             input_length.append(in_len)
