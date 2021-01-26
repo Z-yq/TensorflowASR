@@ -158,7 +158,7 @@ class LMTrainer(BaseTrainer):
 
             except tf.errors.OutOfRangeError:
                 continue
-            if idx>self.train_steps_per_epoch:
+            if self._check_save_interval():
                 break
     def compile(self, model: tf.keras.Model,
                 optimizer: any,

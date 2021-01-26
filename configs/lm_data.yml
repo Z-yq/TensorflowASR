@@ -1,28 +1,30 @@
-train_list: 'D:/TF2-ASR/lm_train_list.txt'
-eval_list: 'D:/TF2-ASR/lm_train_list.txt'
-lm_vocab:
+train_list: './lm_train.txt'
+eval_list: './lm_train_list.txt'
+only_chinese: True
+am_token:
   model_type: 'LM'
-  vocabulary: 'D:/TF2-ASR/AMmodel/am_tokens.txt'
+  for_multi_task: False
+  vocabulary: './AMmodel/am_tokens.txt' #if for_multi_task=True ,./configs/dict/pinyin.txt
   blank_at_zero: True
   beam_width: 1
-lm_word:
+lm_token:
   model_type: 'LM'
-  vocabulary: 'D:/TF2-ASR/LMmodel/lm_tokens.txt'
+  vocabulary: './LMmodel/lm_tokens.txt'
   blank_at_zero: True
   beam_width: 1
 
 
 running_config:
-  batch_size: 4
+  batch_size: 32
   train_steps_per_batches: 10
   eval_steps_per_batches: 10
   num_epochs: 20
   outdir: './transformer-logs'
   log_interval_steps: 300
-  eval_interval_steps: 500
+  eval_interval_steps: 1000
   save_interval_steps: 1000
 
 bert:
-  config_json: 'D:\TF2-ASR\LMmodel\bert\bert_config.json'
-  bert_ckpt: 'D:\TF2-ASR\LMmodel\bert\bert_model.ckpt'
-  bert_vocab: 'D:\TF2-ASR\LMmodel\bert\vocab.txt'
+  config_json: './LMmodel/bert/bert_config.json'
+  bert_ckpt: './LMmodel/bert/bert_model.ckpt'
+  bert_vocab: './LMmodel/bert/vocab.txt'

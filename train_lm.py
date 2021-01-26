@@ -4,7 +4,7 @@ from trainer import lm_runners
 from dataloaders.lm_dataloader import LM_DataLoader
 import tensorflow as tf
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
   def __init__(self, d_model, warmup_steps=4000):
     super(CustomSchedule, self).__init__()
@@ -73,9 +73,9 @@ class LM_Trainer():
 if __name__ == '__main__':
     import argparse
     parse = argparse.ArgumentParser()
-    parse.add_argument('--data_config', type=str, default='./transformer-logs/lm_data.yml',
+    parse.add_argument('--data_config', type=str, default='./configs/lm_data.yml',
                        help='the lm data config path')
-    parse.add_argument('--model_config', type=str, default='./transformer-logs/transformerO2OE.yml',
+    parse.add_argument('--model_config', type=str, default='./configs/transformerO2OE.yml',
                        help='the lm model config path')
     args = parse.parse_args()
 

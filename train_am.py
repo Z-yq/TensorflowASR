@@ -8,7 +8,7 @@ import numpy as np
 import argparse
 import os
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 gpus = tf.config.experimental.list_physical_devices('GPU')
 logging.info('valid gpus:%d' % len(gpus))
 for gpu in gpus:

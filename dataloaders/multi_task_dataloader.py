@@ -29,16 +29,24 @@ class MultiTask_DataLoader():
 
     def load_state(self, outdir):
         try:
-            self.pick_index = np.load(os.path.join(outdir, 'dg_state.npy')).flatten().tolist()
-            self.epochs = 1 + int(np.mean(self.pick_index))
+
+            dg_state = np.load(os.path.join(outdir, 'dg_state.npz'))
+
+            self.epochs = int(dg_state['epoch'])
+            self.train_offset = int(dg_state['train_offset'])
+            train_list = dg_state['train_list'].tolist()
+            if len(train_list)!=len(self.train_list):
+                print('history train list not equal train list ,data loader use init state')
+                self.epochs=0
+                self.train_offset=0
         except FileNotFoundError:
             print('not found state file,init state')
         except:
             print('load state falied,use init state')
 
     def save_state(self, outdir):
-        np.save(os.path.join(outdir, 'dg_state.npy'), np.array(self.pick_index))
-
+        # np.save(os.path.join(outdir, 'dg_state.npy'), np.array(self.pick_index))
+        np.savez(os.path.join(outdir,'dg_state.npz'),epoch=self.epochs,train_offset=self.train_offset,train_list=self.train_list)
 
     def return_data_types(self):
 
@@ -147,7 +155,8 @@ class MultiTask_DataLoader():
             self.train_list = data[:int(num * 0.99)]
             self.test_list = data[int(num * 0.99):]
             np.random.shuffle(self.train_list)
-            self.pick_index = [0.] * len(self.train_list)
+            self.train_offset=0
+            self.test_offset=0
         else:
             self.test_list = data
             self.offset = 0
@@ -185,7 +194,6 @@ class MultiTask_DataLoader():
         py_label = []
         py_label_length = []
 
-        max_wav = 0
         max_input = 0
         max_label_words = 0
         max_label_phone = 0
@@ -313,18 +321,7 @@ class MultiTask_DataLoader():
         return att_targets.astype('float32')
 
     def generate(self, train=True):
-
-        if train:
-            batch = self.batch if self.augment.available() else self.batch * 2
-            indexs = np.argsort(self.pick_index)[:batch]
-            indexs = random.sample(indexs.tolist(), batch // 2)
-            sample = [self.train_list[i] for i in indexs]
-            for i in indexs:
-                self.pick_index[int(i)] += 1
-            self.epochs = 1 + int(np.mean(self.pick_index))
-        else:
-            sample = random.sample(self.test_list, self.batch)
-
+        sample=[]
         speech_features = []
         input_length = []
 
@@ -338,15 +335,33 @@ class MultiTask_DataLoader():
         py_label_length = []
 
 
-
-        max_wav = 0
         max_input = 0
         max_label_words = 0
         max_label_phone = 0
         max_label_py = 0
+        if train:
+            batch = self.batch//2 if self.augment.available() else self.batch
+        else:
+            batch=self.batch
 
-        for i in sample:
-            wp, txt = i.strip().split('\t')
+
+
+
+        for i in range(batch*10):
+            if train:
+                line=self.train_list[self.train_offset]
+                self.train_offset+=1
+                if self.train_offset>len(self.train_list)-1:
+                    self.train_offset=0
+                    np.random.shuffle(self.train_list)
+                    self.epochs+=1
+            else:
+                line = self.test_list[self.test_offset]
+                self.test_offset += 1
+                if self.test_offset > len(self.test_list) - 1:
+                    self.test_offset = 0
+
+            wp, txt = line.strip().split('\t')
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
@@ -409,7 +424,9 @@ class MultiTask_DataLoader():
 
             py_label.append(np.array(py_text_feature))
             py_label_length.append(len(py_text_feature))
-
+            sample.append(line)
+            if len(sample)==batch:
+                break
         if train and self.augment.available():
             for i in sample:
                 wp, txt = i.strip().split('\t')
@@ -441,17 +458,7 @@ class MultiTask_DataLoader():
                 if len(py) == 0:
                     continue
 
-                # if not self.check_valid(word, self.token1_featurizer.vocab_array):
-                #     print(' {} txt word {} not all in tokens,continue'.format(txt, word))
-                #     continue
-                #
-                # if not self.check_valid(phone, self.token2_featurizer.vocab_array):
-                #     print(' {} txt phone {} not all in tokens,continue'.format(txt, phone))
-                #     continue
-                #
-                # if not self.check_valid(py, self.token3_featurizer.vocab_array):
-                #     print(' {} txt pinyin {} not all in tokens,continue'.format(txt, py))
-                #     continue
+
                 word_text_feature = self.token1_featurizer.extract(word)
                 phone_text_feature = self.token2_featurizer.extract(phone)
                 py_text_feature = self.token3_featurizer.extract(py)
