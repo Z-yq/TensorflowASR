@@ -2,9 +2,6 @@ from utils.user_config import UserConfig
 from AMmodel.model import AM
 from LMmodel.trm_lm import LM
 import pypinyin
-import time
-import os
-
 
 class ASR():
     def __init__(self, am_config, lm_config):
@@ -24,11 +21,11 @@ class ASR():
         if self.am.model_type == 'Transducer':
             am_result = self.decode_am_result(am_result[1:-1])
             lm_result = self.lm.predict(am_result)
-            lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
+            lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.lm_featurizer)
         else:
             am_result = self.decode_am_result(am_result[0])
             lm_result = self.lm.predict(am_result)
-            lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
+            lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.lm_featurizer)
         return am_result, lm_result
 
     def am_test(self, wav_path):
@@ -47,7 +44,7 @@ class ASR():
         # now lm_result is token id
         lm_result = self.lm.predict(input_py)
         # token to vocab
-        lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
+        lm_result = self.lm.decode(lm_result[0].numpy(), self.lm.lm_featurizer)
         return lm_result
 
 
@@ -58,6 +55,7 @@ if __name__ == '__main__':
     # USE one GPU:
     # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     # limit cpu to 1 core:
+    # import tensorflow as tf
     # tf.config.threading.set_inter_op_parallelism_threads(1)
     # tf.config.threading.set_intra_op_parallelism_threads(1)
     am_config = UserConfig(r'./conformerCTC(M)/am_data.yml', r'./conformerCTC(M)/conformerM.yml')
@@ -88,5 +86,5 @@ if __name__ == '__main__':
     e=time.time()
     print('asr.lm_test cost time:',e-s)
 
-    # time cost test:
+
 

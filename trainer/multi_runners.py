@@ -58,7 +58,7 @@ class MultiTaskCTCTrainer(BaseTrainer):
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
         speech_features, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length= batch
-        # print(speech_features.shape,input_length.shape,words_label.shape,words_label_length.shape,phone_label.shape,phone_label_length.shape,py_label.shape,py_label_length.shape)
+
         with tf.GradientTape() as tape:
 
             ctc1_output, ctc2_output, ctc3_output, final_decoded = self.model(
@@ -98,8 +98,6 @@ class MultiTaskCTCTrainer(BaseTrainer):
         self.train_metrics["ctc2_loss"].update_state(ctc2_loss)
         self.train_metrics["ctc3_loss"].update_state(ctc3_loss)
         self.train_metrics["acc"].update_state(acc)
-
-
 
 
     @tf.function(experimental_relax_shapes=True)

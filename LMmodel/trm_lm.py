@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from utils.text_featurizers import TextFeaturizer
 import os
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class LM():
     def __init__(self,config):
         self.config=config

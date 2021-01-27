@@ -1,11 +1,15 @@
-from utils.speech_featurizers import SpeechFeaturizer
-from utils.text_featurizers import TextFeaturizer
-import numpy as np
-from augmentations.augments import Augmentation
-import random
+import logging
 import os
+
+import numpy as np
 import pypinyin
 import tensorflow as tf
+
+from augmentations.augments import Augmentation
+from utils.speech_featurizers import SpeechFeaturizer
+from utils.text_featurizers import TextFeaturizer
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
 class MultiTask_DataLoader():
@@ -35,23 +39,23 @@ class MultiTask_DataLoader():
             self.epochs = int(dg_state['epoch'])
             self.train_offset = int(dg_state['train_offset'])
             train_list = dg_state['train_list'].tolist()
-            if len(train_list)!=len(self.train_list):
-                print('history train list not equal train list ,data loader use init state')
-                self.epochs=0
-                self.train_offset=0
+            if len(train_list) != len(self.train_list):
+                logging.info('history train list not equal train list ,data loader use init state')
+                self.epochs = 0
+                self.train_offset = 0
         except FileNotFoundError:
-            print('not found state file,init state')
+            logging.info('not found state file,init state')
         except:
-            print('load state falied,use init state')
+            logging.info('load state falied,use init state')
 
     def save_state(self, outdir):
-        # np.save(os.path.join(outdir, 'dg_state.npy'), np.array(self.pick_index))
-        np.savez(os.path.join(outdir,'dg_state.npz'),epoch=self.epochs,train_offset=self.train_offset,train_list=self.train_list)
+        np.savez(os.path.join(outdir, 'dg_state.npz'), epoch=self.epochs, train_offset=self.train_offset,
+                 train_list=self.train_list)
 
     def return_data_types(self):
 
         return (
-        tf.float32,  tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32)
+            tf.float32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32, tf.int32)
 
     def return_data_shape(self):
         f, c = self.speech_featurizer.compute_feature_dim()
@@ -87,64 +91,21 @@ class MultiTask_DataLoader():
             except:
                 continue
             phone_map[key] = phone.split(' ')
-        self.phone_map=phone_map
+        self.phone_map = phone_map
 
     def map(self, txt):
-        pys=pypinyin.pinyin(txt,8,neutral_tone_with_five=True)
+        pys = pypinyin.pinyin(txt, 8, neutral_tone_with_five=True)
 
         pys = [i[0] for i in pys]
         phones = []
-       
 
         for i in pys:
-            phones+=self.phone_map[i]
-        words=''.join(pys)
-        words=list(words)
+            phones += self.phone_map[i]
+        words = ''.join(pys)
+        words = list(words)
         return pys, phones, words
 
-    def augment_data(self, wavs, label, label_length):
-        if not self.augment.available():
-            return None
-        mels = []
-        input_length = []
-        label_ = []
-        label_length_ = []
-        wavs_ = []
-        max_input = 0
-        max_wav = 0
-        for idx, wav in enumerate(wavs):
 
-            data = self.augment.process(wav.flatten())
-            speech_feature = self.speech_featurizer.extract(data)
-            if speech_feature.shape[0] // self.speech_config['reduction_factor'] < label_length[idx]:
-                continue
-            max_input = max(max_input, speech_feature.shape[0])
-
-            max_wav = max(max_wav, len(data))
-
-            wavs_.append(data)
-
-            mels.append(speech_feature)
-            input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
-            label_.append(label[idx])
-            label_length_.append(label_length[idx])
-
-        for i in range(len(mels)):
-            if mels[i].shape[0] < max_input:
-                pad = np.ones([max_input - mels[i].shape[0], mels[i].shape[1], mels[i].shape[2]]) * mels[i].min()
-                mels[i] = np.vstack((mels[i], pad))
-
-        wavs_ = self.speech_featurizer.pad_signal(wavs_, max_wav)
-
-        x = np.array(mels, 'float32')
-        label_ = np.array(label_, 'int32')
-
-        input_length = np.array(input_length, 'int32')
-        label_length_ = np.array(label_length_, 'int32')
-
-        wavs_ = np.array(np.expand_dims(wavs_, -1), 'float32')
-
-        return x, wavs_, input_length, label_, label_length_
 
     def make_file_list(self, wav_list, training=True):
         with open(wav_list, encoding='utf-8') as f:
@@ -155,12 +116,13 @@ class MultiTask_DataLoader():
             self.train_list = data[:int(num * 0.99)]
             self.test_list = data[int(num * 0.99):]
             np.random.shuffle(self.train_list)
-            self.train_offset=0
-            self.test_offset=0
+            self.train_offset = 0
+            self.test_offset = 0
+            logging.info('train list : {} test list:{}'.format(len(self.train_list),len(self.test_list)))
         else:
             self.test_list = data
             self.offset = 0
-
+            logging.info('eval list: {}'.format(len(self.test_list)))
     def only_chinese(self, word):
         txt = ''
         for ch in word:
@@ -170,8 +132,9 @@ class MultiTask_DataLoader():
                 continue
 
         return txt
-    def check_valid(self,txt,vocab_list):
-        if len(txt)==0:
+
+    def check_valid(self, txt, vocab_list):
+        if len(txt) == 0:
             return False
         for n in txt:
             if n in vocab_list:
@@ -179,6 +142,7 @@ class MultiTask_DataLoader():
             else:
                 return n
         return True
+
     def eval_data_generator(self):
         sample = self.test_list[self.offset:self.offset + self.batch]
         self.offset += self.batch
@@ -204,12 +168,12 @@ class MultiTask_DataLoader():
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
-                print('{} load data failed,skip'.format(wp))
+                logging.info('{} load data failed,skip'.format(wp))
                 continue
             if len(data) < 400:
                 continue
             elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
-                print('{} duration out of wav_max_duration({}),skip'.format(wp, self.speech_config['wav_max_duration']))
+                logging.info('{} duration out of wav_max_duration({}),skip'.format(wp, self.speech_config['wav_max_duration']))
                 continue
             if self.speech_config['only_chinese']:
                 txt = self.only_chinese(txt)
@@ -228,23 +192,23 @@ class MultiTask_DataLoader():
                 continue
 
             if not self.check_valid(word, self.token1_featurizer.vocab_array):
-                print(' {} txt word {} not all in tokens,continue'.format(txt, py))
+                logging.info(' {} txt word {} not all in tokens,continue'.format(txt, py))
                 continue
-                
+
             if not self.check_valid(phone, self.token1_featurizer.vocab_array):
-                print(' {} txt phone {} not all in tokens,continue'.format(txt, py))
+                logging.info(' {} txt phone {} not all in tokens,continue'.format(txt, py))
                 continue
-                
+
             if not self.check_valid(py, self.token1_featurizer.vocab_array):
-                print(' {} txt pinyin {} not all in tokens,continue'.format(txt, py))
+                logging.info(' {} txt pinyin {} not all in tokens,continue'.format(txt, py))
                 continue
             word_text_feature = self.token1_featurizer.extract(word)
             phone_text_feature = self.token2_featurizer.extract(phone)
             py_text_feature = self.token3_featurizer.extract(py)
-          
-            if in_len  < len(word_text_feature):
+
+            if in_len < len(word_text_feature):
                 continue
-            
+
             max_label_words = max(max_label_words, len(word_text_feature))
             max_label_phone = max(max_label_phone, len(phone_text_feature))
             max_label_py = max(max_label_py, len(py_text_feature))
@@ -261,9 +225,6 @@ class MultiTask_DataLoader():
             py_label.append(np.array(py_text_feature))
             py_label_length.append(len(py_text_feature))
 
-           
-
-        
         if self.speech_config['use_mel_layer']:
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
@@ -274,9 +235,6 @@ class MultiTask_DataLoader():
                     pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
                                    speech_features[i].shape[2]]) * speech_features[i].min()
                     speech_features[i] = np.vstack((speech_features[i], pad))
-
-
-
 
         words_label = self.pad(words_label, max_label_words)
         phone_label = self.pad(phone_label, max_label_phone)
@@ -321,7 +279,7 @@ class MultiTask_DataLoader():
         return att_targets.astype('float32')
 
     def generate(self, train=True):
-        sample=[]
+        sample = []
         speech_features = []
         input_length = []
 
@@ -334,27 +292,23 @@ class MultiTask_DataLoader():
         py_label = []
         py_label_length = []
 
-
         max_input = 0
         max_label_words = 0
         max_label_phone = 0
         max_label_py = 0
         if train:
-            batch = self.batch//2 if self.augment.available() else self.batch
+            batch = self.batch // 2 if self.augment.available() else self.batch
         else:
-            batch=self.batch
+            batch = self.batch
 
-
-
-
-        for i in range(batch*10):
+        for i in range(batch * 10):
             if train:
-                line=self.train_list[self.train_offset]
-                self.train_offset+=1
-                if self.train_offset>len(self.train_list)-1:
-                    self.train_offset=0
+                line = self.train_list[self.train_offset]
+                self.train_offset += 1
+                if self.train_offset > len(self.train_list) - 1:
+                    self.train_offset = 0
                     np.random.shuffle(self.train_list)
-                    self.epochs+=1
+                    self.epochs += 1
             else:
                 line = self.test_list[self.test_offset]
                 self.test_offset += 1
@@ -365,12 +319,12 @@ class MultiTask_DataLoader():
             try:
                 data = self.speech_featurizer.load_wav(wp)
             except:
-                print('{} load data failed,skip'.format(wp))
+                logging.info('{} load data failed,skip'.format(wp))
                 continue
             if len(data) < 400:
                 continue
             elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
-                print('{} duration out of wav_max_duration({}),skip'.format(wp, self.speech_config['wav_max_duration']))
+                logging.info('{} duration out of wav_max_duration({}),skip'.format(wp, self.speech_config['wav_max_duration']))
                 continue
             if self.speech_config['only_chinese']:
                 txt = self.only_chinese(txt)
@@ -386,21 +340,22 @@ class MultiTask_DataLoader():
 
             py, phone, word = self.map(txt)
             if len(py) == 0:
-                print('py length',len(py),'skip')
+                logging.info('py length', len(py), 'skip')
                 continue
 
-            if  self.check_valid(word, self.token1_featurizer.vocab_array) is not True:
-                print(' {} txt word {} not all in tokens,continue'.format(txt,self.check_valid(word, self.token1_featurizer.vocab_array)))
+            if self.check_valid(word, self.token1_featurizer.vocab_array) is not True:
+                logging.info(' {} txt word {} not all in tokens,continue'.format(txt, self.check_valid(word,
+                                                                                                self.token1_featurizer.vocab_array)))
                 continue
             #
             if self.check_valid(phone, self.token2_featurizer.vocab_array) is not True:
-                print(' {} txt phone {} not all in tokens,continue'.format(txt, self.check_valid(phone,
-                                                                                                self.token2_featurizer.vocab_array)))
+                logging.info(' {} txt phone {} not all in tokens,continue'.format(txt, self.check_valid(phone,
+                                                                                                 self.token2_featurizer.vocab_array)))
                 continue
             #
             if self.check_valid(py, self.token3_featurizer.vocab_array) is not True:
-                print(' {} txt py {} not all in tokens,continue'.format(txt, self.check_valid(py,
-                                                                                                self.token3_featurizer.vocab_array)))
+                logging.info(' {} txt py {} not all in tokens,continue'.format(txt, self.check_valid(py,
+                                                                                              self.token3_featurizer.vocab_array)))
                 continue
             word_text_feature = self.token1_featurizer.extract(word)
             phone_text_feature = self.token2_featurizer.extract(phone)
@@ -425,7 +380,7 @@ class MultiTask_DataLoader():
             py_label.append(np.array(py_text_feature))
             py_label_length.append(len(py_text_feature))
             sample.append(line)
-            if len(sample)==batch:
+            if len(sample) == batch:
                 break
         if train and self.augment.available():
             for i in sample:
@@ -433,15 +388,14 @@ class MultiTask_DataLoader():
                 try:
                     data = self.speech_featurizer.load_wav(wp)
                 except:
-                    print('{} load data failed,skip'.format(wp))
+
                     continue
                 if len(data) < 400:
                     continue
                 elif len(data) > self.speech_featurizer.sample_rate * self.speech_config['wav_max_duration']:
-                    print('{} duration out of wav_max_duration({}),skip'.format(wp,
-                                                                                self.speech_config['wav_max_duration']))
+
                     continue
-                data=self.augment.process(data)
+                data = self.augment.process(data)
                 if self.speech_config['only_chinese']:
                     txt = self.only_chinese(txt)
                 if self.speech_config['use_mel_layer']:
@@ -457,7 +411,6 @@ class MultiTask_DataLoader():
                 py, phone, word = self.map(txt)
                 if len(py) == 0:
                     continue
-
 
                 word_text_feature = self.token1_featurizer.extract(word)
                 phone_text_feature = self.token2_featurizer.extract(phone)
@@ -509,6 +462,7 @@ class MultiTask_DataLoader():
 
     def generator(self, train=True):
         while 1:
-            speech_features, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length= self.generate(train)
+            speech_features, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length = self.generate(
+                train)
 
             yield speech_features, input_length, words_label, words_label_length, phone_label, phone_label_length, py_label, py_label_length
