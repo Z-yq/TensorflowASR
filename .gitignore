@@ -11,3 +11,4 @@
 *.index
 *.meta
 *.json
+*.npz

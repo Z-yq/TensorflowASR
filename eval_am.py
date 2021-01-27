@@ -6,7 +6,7 @@ from tester import am_tester,multi_task_tester
 import numpy as np
 import argparse
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 class AM_Tester():
     def __init__(self,config):
         self.config=config['learning_config']
