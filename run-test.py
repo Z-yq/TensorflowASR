@@ -38,9 +38,16 @@ class ASR():
             am_result = self.decode_am_result(am_result[0])
         return am_result
 
+
     def lm_test(self, txt):
-        py = pypinyin.pinyin(txt)
-        input_py = [i[0] for i in py]
+        if self.lm.config['am_token']['for_multi_task']:
+            pys = pypinyin.pinyin(txt, 8, neutral_tone_with_five=True)
+            input_py = [i[0] for i in pys]
+
+        else:
+            pys = pypinyin.pinyin(txt)
+            input_py = [i[0] for i in pys]
+
         # now lm_result is token id
         lm_result = self.lm.predict(input_py)
         # token to vocab
