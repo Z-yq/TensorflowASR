@@ -135,7 +135,7 @@ class MHSAModule(tf.keras.layers.Layer):
 
     def get_config(self):
         conf = super(MHSAModule, self).get_config()
-        conf.update(self.pc.get_config())
+        # conf.update(self.pc.get_config())
         conf.update(self.ln.get_config())
         conf.update(self.mha.get_config())
         conf.update(self.do.get_config())
