@@ -52,7 +52,6 @@ class CtcModel(tf.keras.Model):
         self(features, training=False)
 
     def summary(self, line_length=None, **kwargs):
-        self.encoder.summary(line_length=line_length, **kwargs)
         super(CtcModel, self).summary(line_length, **kwargs)
 
     def add_featurizers(self,

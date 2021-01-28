@@ -67,17 +67,18 @@ class DeepSpeech2(tf.keras.layers.Layer):
             layer += [tf.keras.layers.ReLU(name=f"cnn_relu_{i}")]
             layer += [tf.keras.layers.Dropout(conv_conf["conv_dropout"],
                                               name=f"cnn_dropout_{i}")]
-
+        last_dim=fil
         if conv_conf["conv_type"] == 2:
             layer += [Merge2LastDims("reshape_conv2d_to_rnn")]
+        layer+=[tf.keras.layers.Dense(last_dim,name='feature_projector')]
         self.Cnn_feature_extractor=tf.keras.Sequential(layer)
-        dim=tf.shape(self.Cnn_feature_extractor)[-1]
+
         self.add_wav_info=kwargs['add_wav_info']
         if kwargs['add_wav_info']:
             hop_size=kwargs['hop_size']
             for i, fil in enumerate(conv_conf["conv_filters"]):
-                hop_size*=conv_conf["conv_strides"][i]
-            self.wav_layer=WavePickModel(dim,hop_size)
+                hop_size*=conv_conf["conv_strides"][i][0]
+            self.wav_layer=WavePickModel(last_dim,hop_size)
         layer=[]
         rnn = get_rnn(rnn_conf["rnn_type"])
 
@@ -130,7 +131,7 @@ class DeepSpeech2(tf.keras.layers.Layer):
         else:
             outputs=self.Cnn_feature_extractor(inputs,training=training)
         outputs=self.Rnn_feature_extractor(outputs,training=training)
-        return [outputs]
+        return outputs
 
 
 

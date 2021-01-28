@@ -156,7 +156,6 @@ class Transducer(tf.keras.Model):
         self.joint_net.save(os.path.join(path_to_dir, "joint"))
 
     def summary(self, line_length=None, **kwargs):
-        self.encoder.summary(line_length=line_length, **kwargs)
         self.predict_net.summary(line_length=line_length, **kwargs)
         self.joint_net.summary(line_length=line_length, **kwargs)
         super(Transducer, self).summary(line_length=line_length, **kwargs)
