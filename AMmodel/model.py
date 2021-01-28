@@ -60,6 +60,7 @@ class AM():
         f,c=self.speech_feature.compute_feature_dim()
         input_shape=[None,f,c]
         self.model_config.update({'input_shape':input_shape})
+        self.model_config.update({'dmodel':self.model_config['rnn_conf']['rnn_units']})
         if self.model_config['name'] == 'DeepSpeech2Transducer':
             self.model_config.pop('LAS_decoder')
             self.model_config.pop('enable_tflite_convertible')
