@@ -103,49 +103,7 @@ class AM_DataLoader():
 
         self.text_to_vocab = text_to_vocab_func
 
-    def augment_data(self, wavs, label, label_length):
-        if not self.augment.available():
-            return None
-        mels = []
-        input_length = []
-        label_ = []
-        label_length_ = []
-        wavs_ = []
-        max_input = 0
-        max_wav = 0
-        for idx, wav in enumerate(wavs):
 
-            data = self.augment.process(wav.flatten())
-            speech_feature = self.speech_featurizer.extract(data)
-            if speech_feature.shape[0] // self.speech_config['reduction_factor'] < label_length[idx]:
-                continue
-            max_input = max(max_input, speech_feature.shape[0])
-
-            max_wav = max(max_wav, len(data))
-
-            wavs_.append(data)
-
-            mels.append(speech_feature)
-            input_length.append(speech_feature.shape[0] // self.speech_config['reduction_factor'])
-            label_.append(label[idx])
-            label_length_.append(label_length[idx])
-
-        for i in range(len(mels)):
-            if mels[i].shape[0] < max_input:
-                pad = np.ones([max_input - mels[i].shape[0], mels[i].shape[1], mels[i].shape[2]]) * mels[i].min()
-                mels[i] = np.vstack((mels[i], pad))
-
-        wavs_ = self.speech_featurizer.pad_signal(wavs_, max_wav)
-
-        x = np.array(mels, 'float32')
-        label_ = np.array(label_, 'int32')
-
-        input_length = np.array(input_length, 'int32')
-        label_length_ = np.array(label_length_, 'int32')
-
-        wavs_ = np.array(np.expand_dims(wavs_, -1), 'float32')
-
-        return x, wavs_, input_length, label_, label_length_
 
     def make_file_list(self, wav_list, training=True):
         with open(wav_list, encoding='utf-8') as f:
@@ -158,6 +116,7 @@ class AM_DataLoader():
             np.random.shuffle(self.train_list)
             self.train_offset = 0
             self.test_offset = 0
+            logging.info('load train list {} test list{}'.format(len(self.train_list),len(self.test_list)))
         else:
             self.test_list = data
             self.offset = 0
@@ -346,6 +305,9 @@ class AM_DataLoader():
             input_length.append(in_len)
             y1.append(np.array(text_feature))
             label_length1.append(len(text_feature))
+            sample.append(line)
+            if len(sample)==batch:
+                break
         if train and self.augment.available():
             for i in sample:
                 wp, txt = i.strip().split('\t')
