@@ -79,8 +79,10 @@ class TransducerJoint(tf.keras.Model):
         enc_out = self.ffn_enc(enc, training=training)  # [B, T ,E] => [B, T, V]
         pred_out = self.ffn_pred(pred, training=training)  # [B, U, P] => [B, U, V]
         # => [B, T, U, V]
+
         outputs = tf.nn.tanh(tf.expand_dims(enc_out, axis=2) + tf.expand_dims(pred_out, axis=1))
         outputs = self.ffn_out(outputs, training=training)
+
         return outputs
 
     def get_config(self):
@@ -137,6 +139,8 @@ class Transducer(tf.keras.Model):
                     trainable_kernel=speech_config['trainable_kernel']
                 )
             self.mel_layer.trainable = speech_config['trainable_kernel']
+
+        self.ctc_classes=tf.keras.layers.Dense(vocabulary_size,name='ctc_classes')
         self.wav_info = speech_config['add_wav_info']
         if self.wav_info:
             assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
@@ -179,9 +183,10 @@ class Transducer(tf.keras.Model):
 
         pred = self.predict_net(predicted, training=training)
         outputs = self.joint_net([enc[-1], pred], training=training)
+        ctc_outputs=self.ctc_classes(enc[-1],training=training)
         # outputs = self.joint_net([enc, pred], training=training)
 
-        return outputs
+        return outputs,ctc_outputs
 
     def add_featurizers(self,
                         text_featurizer: TextFeaturizer):

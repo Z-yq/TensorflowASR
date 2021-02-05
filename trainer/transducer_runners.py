@@ -8,7 +8,7 @@ from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss
 from AMmodel.transducer_wrap import Transducer
 from utils.text_featurizers import TextFeaturizer
 import logging
-
+import random
 class TransducerTrainer(BaseTrainer):
     def __init__(self,
                  speech_featurizer,
@@ -34,36 +34,43 @@ class TransducerTrainer(BaseTrainer):
             self.rnnt_loss=rnnt_loss
     def set_train_metrics(self):
         self.train_metrics = {
-            "transducer_loss": tf.keras.metrics.Mean("train_transducer_loss", dtype=tf.float32)
+            "transducer_loss": tf.keras.metrics.Mean("train_transducer_loss", dtype=tf.float32),
+            "ctc_loss": tf.keras.metrics.Mean("ctc_loss", dtype=tf.float32),
+
         }
 
     def set_eval_metrics(self):
         self.eval_metrics = {
-            "transducer_loss": tf.keras.metrics.Mean("eval_transducer_loss", dtype=tf.float32)
+            "transducer_loss": tf.keras.metrics.Mean("eval_transducer_loss", dtype=tf.float32),
+            "ctc_loss": tf.keras.metrics.Mean("ctc_loss", dtype=tf.float32),
         }
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
         features,  input_length, labels, label_length = batch
+
         pred_inp=labels
         target=labels[:,1:]
         label_length-=1
+        ctc_label = tf.where(target==self.text_featurizer.blank,0,target)
 
         with tf.GradientTape() as tape:
 
 
-            logits = self.model([features, pred_inp], training=True)
+            logits,ctc_logits = self.model([features, pred_inp], training=True)
             # print(logits.shape,target.shape)
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
                                               , label_length=label_length, logit_length=input_length)
+                per_train_loss = tf.clip_by_value(per_train_loss, 0., 500.)
             else:
                 per_train_loss = self.rnnt_loss(
                 logits=logits, labels=labels, label_length=label_length,
                 logit_length=(input_length // self.model.time_reduction_factor),
                 blank=self.text_featurizer.blank)
-
-            train_loss = tf.nn.compute_average_loss(per_train_loss,
+            ctc_loss = tf.nn.ctc_loss(ctc_label, ctc_logits, label_length, input_length, False, blank_index=-1)
+            ctc_loss = tf.clip_by_value(ctc_loss, 0., 1000.)
+            train_loss = tf.nn.compute_average_loss(per_train_loss+ctc_loss,
                                                     global_batch_size=self.global_batch_size)
 
             if self.is_mixed_precision:
@@ -77,6 +84,8 @@ class TransducerTrainer(BaseTrainer):
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
         self.train_metrics["transducer_loss"].update_state(per_train_loss)
+        self.train_metrics["ctc_loss"].update_state(ctc_loss)
+
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
@@ -84,9 +93,9 @@ class TransducerTrainer(BaseTrainer):
         pred_inp = labels
         target = labels[:, 1:]
         label_length -= 1
+        ctc_label = tf.where(target == self.text_featurizer.blank, 0, target)
 
-
-        logits = self.model([features, pred_inp], training=False)
+        logits ,ctc_logits= self.model([features, pred_inp], training=False)
         if USE_TF:
             eval_loss = self.rnnt_loss(logits=logits, labels=target
                                             , label_length=label_length,
@@ -97,8 +106,10 @@ class TransducerTrainer(BaseTrainer):
                 logits=logits, labels=target, label_length=label_length,
                 logit_length=(input_length // self.model.time_reduction_factor),
                 blank=self.text_featurizer.blank)
-
+        ctc_loss = tf.nn.ctc_loss(ctc_label, ctc_logits, label_length, input_length, False, blank_index=-1)
+        ctc_loss = tf.clip_by_value(ctc_loss, 0., 500.)
         self.eval_metrics["transducer_loss"].update_state(eval_loss)
+        self.eval_metrics["ctc_loss"].update_state(ctc_loss)
 
     def compile(self,
                 model: Transducer,
@@ -128,3 +139,20 @@ class TransducerTrainer(BaseTrainer):
                 f"[Train] [Epoch {epoch}/{self.config['num_epochs']}]")
         self._train_batches()
         self._check_eval_interval()
+    def _train_batches(self):
+        """Train model one epoch."""
+
+        for batch in self.train_datasets:
+            try:
+                self.strategy.run(self._train_step,args=(batch,))
+
+                self.steps+=1
+                self.train_progbar.update(1)
+                self._print_train_metrics(self.train_progbar)
+                self._check_log_interval()
+
+                if self._check_save_interval():
+                    break
+
+            except tf.errors.OutOfRangeError:
+                continue

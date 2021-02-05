@@ -140,6 +140,7 @@ class Transducer(tf.keras.Model):
         self.wav_info = speech_config['add_wav_info']
         if self.wav_info:
             assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
+        self.ctc_classes = tf.keras.layers.Dense(vocabulary_size, name='ctc_classes')
         self.kept_decode = None
         self.startid = 0
         self.endid = 1
@@ -178,9 +179,10 @@ class Transducer(tf.keras.Model):
             enc = self.encoder(features, training=training)
 
         pred,_ = self.predict_net(predicted, training=training)
-        outputs = self.joint_net([enc, pred], training=training)
+        outputs = self.joint_net([enc[-1], pred], training=training)
+        ctc_outputs = self.ctc_classes(enc[-1], training=training)
 
-        return outputs
+        return outputs,ctc_outputs
 
     def add_featurizers(self,
                         text_featurizer: TextFeaturizer):
