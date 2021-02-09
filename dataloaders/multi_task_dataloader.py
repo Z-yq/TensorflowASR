@@ -195,11 +195,11 @@ class MultiTask_DataLoader():
                 logging.info(' {} txt word {} not all in tokens,continue'.format(txt, py))
                 continue
 
-            if not self.check_valid(phone, self.token1_featurizer.vocab_array):
+            if not self.check_valid(phone, self.token2_featurizer.vocab_array):
                 logging.info(' {} txt phone {} not all in tokens,continue'.format(txt, py))
                 continue
 
-            if not self.check_valid(py, self.token1_featurizer.vocab_array):
+            if not self.check_valid(py, self.token3_featurizer.vocab_array):
                 logging.info(' {} txt pinyin {} not all in tokens,continue'.format(txt, py))
                 continue
             word_text_feature = self.token1_featurizer.extract(word)
