@@ -52,7 +52,7 @@ class AM_DataLoader():
 
     def return_data_types(self):
         if self.LAS:
-            return (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32, tf.float32)
+            return ( tf.float32, tf.int32, tf.int32, tf.int32, tf.float32)
         else:
             return (tf.float32, tf.int32, tf.int32, tf.int32)
 
