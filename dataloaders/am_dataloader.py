@@ -51,32 +51,24 @@ class AM_DataLoader():
                  train_list=self.train_list)
 
     def return_data_types(self):
-        if self.LAS:
-            return (tf.float32, tf.float32, tf.int32, tf.int32, tf.int32, tf.float32)
-        else:
-            return (tf.float32, tf.int32, tf.int32, tf.int32)
+        # if self.LAS:
+        return (tf.float32, tf.int32, tf.int32, tf.int32, tf.float32)
+        # else:
+        #     return (tf.float32, tf.int32, tf.int32, tf.int32)
 
     def return_data_shape(self):
         f, c = self.speech_featurizer.compute_feature_dim()
-        if self.LAS:
-            return (
-                tf.TensorShape([None, None, 1]) if self.speech_config['use_mel_layer'] else tf.TensorShape(
-                    [None, None, f, c]),
+        # if self.LAS:
+        return (
+            tf.TensorShape([None, None, 1]) if self.speech_config['use_mel_layer'] else tf.TensorShape(
+                [None, None, f, c]),
 
-                tf.TensorShape([None, ]),
-                tf.TensorShape([None, None]),
-                tf.TensorShape([None, ]),
-                tf.TensorShape([None, None, None])
-            )
-        else:
-            return (
-                tf.TensorShape([None, None, 1]) if self.speech_config['use_mel_layer'] else tf.TensorShape(
-                    [None, None, f, c]),
+            tf.TensorShape([None, ]),
+            tf.TensorShape([None, None]),
+            tf.TensorShape([None, ]),
+            tf.TensorShape([None, None, None])
+        )
 
-                tf.TensorShape([None, ]),
-                tf.TensorShape([None, None]),
-                tf.TensorShape([None, ])
-            )
 
     def get_per_epoch_steps(self):
         return len(self.train_list) // self.batch
@@ -379,9 +371,9 @@ class AM_DataLoader():
             if x.shape[0] == 0:
                 logging.info('load data length zero,continue')
                 continue
-            if self.LAS:
-                guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
-                                                     label_length.max())
-                yield x, input_length, labels, label_length, guide_matrix
-            else:
-                yield x, input_length, labels, label_length
+            # if self.LAS:
+            guide_matrix = self.guided_attention(input_length, label_length, np.max(input_length),
+                                                 label_length.max())
+            yield x, input_length, labels, label_length, guide_matrix
+            # else:
+            #     yield x, input_length, labels, label_length

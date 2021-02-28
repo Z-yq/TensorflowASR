@@ -38,7 +38,7 @@ DEFAULT_FC = {
     "fc_units": (1024,),
     "fc_dropout": 0.2
 }
-class DeepSpeech2(tf.keras.layers.Layer):
+class DeepSpeech2(tf.keras.Model):
     def __init__(self,arch_config,**kwargs):
         super(DeepSpeech2, self).__init__()
         conv_conf = append_default_keys_dict(DEFAULT_CONV, arch_config.get("conv_conf", {}))
@@ -121,7 +121,7 @@ class DeepSpeech2(tf.keras.layers.Layer):
                 layer += [tf.keras.layers.Dropout(fc_conf["fc_dropout"],
                                                   name=f"hidden_fc_dropout_{idx}")]
         self.Rnn_feature_extractor=tf.keras.Sequential(layer)
-
+        self.dmodel=fc_conf["fc_units"][-1]
     def call(self,inputs,training=True):
         if self.add_wav_info:
             mel,wav=inputs
@@ -132,7 +132,13 @@ class DeepSpeech2(tf.keras.layers.Layer):
             outputs=self.Cnn_feature_extractor(inputs,training=training)
         outputs=self.Rnn_feature_extractor(outputs,training=training)
         return outputs
-
+    def get_config(self):
+        conf = super(DeepSpeech2, self).get_config()
+        if self.add_wav_info:
+            conf.update(self.wav_layer.get_config())
+        conf.update(self.Cnn_feature_extractor.get_config())
+        conf.update(self.Rnn_feature_extractor.get_config())
+        return conf
 
 
 class DeepSpeech2CTC(CtcModel):

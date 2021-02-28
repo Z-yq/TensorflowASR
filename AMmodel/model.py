@@ -90,36 +90,17 @@ class AM():
 
         self.model = ConformerMultiTaskCTC(self.model_config,  training=training,
                                     speech_config=self.speech_config)
-    def espnet_model(self,training):
-        from AMmodel.espnet import ESPNetCTC,ESPNetLAS,ESPNetTransducer
-        self.config['Transducer_decoder'].update({'vocabulary_size': self.text_feature.num_classes})
-        if self.model_config['name'] == 'ESPNetTransducer':
-            self.model = ESPNetTransducer(self.config,speech_config=self.speech_config)
-        elif self.model_config['name'] == 'ESPNetCTC':
-            self.model = ESPNetCTC(self.model_config,self.text_feature.num_classes,speech_config=self.speech_config)
-        elif self.model_config['name'] == 'ESPNetLAS':
-            self.config['LAS_decoder'].update({'n_classes': self.text_feature.num_classes})
-            self.config['LAS_decoder'].update({'startid': self.text_feature.start})
-            self.model = ESPNetLAS(self.config, training=training,
-                                      enable_tflite_convertible=self.config[
-                                          'enable_tflite_convertible'],speech_config=self.speech_config)
-        else:
-            raise ('not in supported model list')
     def load_model(self,training=True):
 
-        if 'ESPNet' in self.model_config['name']:
-            self.espnet_model(training)
-        elif 'Multi' in self.model_config['name']:
+
+        if 'Multi' in self.model_config['name']:
             self.multi_task_model(training)
-
-
         elif 'Conformer' in self.model_config['name']:
             self.conformer_model(training)
         else:
             self.ds2_model(training)
         self.model.add_featurizers(self.text_feature)
         f,c=self.speech_feature.compute_feature_dim()
-
 
 
         if not training:
@@ -169,7 +150,9 @@ class AM():
             input_length=np.array([[mel.shape[1]//self.model.time_reduction_factor]],'int32')
         else:
             mel=data.reshape([1,-1,1])
-            input_length = np.array([[mel.shape[1] // self.model.time_reduction_factor//160]], 'int32')
+            input_length = np.array([[mel.shape[1] // (
+                    self.speech_config['reduction_factor'] * (self.speech_feature.sample_rate / 1000) *
+                    self.speech_config['stride_ms'])]], 'int32')
         result=self.model.recognize_pb(mel,input_length)[0]
 
         return result
@@ -181,26 +164,5 @@ class AM():
         files = os.listdir(self.checkpoint_dir)
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
-        self.init_steps= int(files[-1].split('_')[-1].replace('.h5', ''))
+        logging.info('load model at {}'.format(os.path.join(self.checkpoint_dir, files[-1])))
 
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
-    import tensorflow as tf
-    os.environ['CUDA_VISIBLE_DEVICES']='1'
-    am_config = UserConfig(r'D:\TF2-ASR\configs\am_data.yml', r'D:\TF2-ASR\configs\conformer.yml')
-    am=AM(am_config)
-    print('load model')
-    am.load_model(False)
-    print('convert here')
-    # am.model.return_pb_function(80, 4)
-    # concere = am.model.recognize_pb.get_concrete_function()
-    # converter = tf.lite.TFLiteConverter.from_concrete_functions(
-    #     [concere]
-    # )
-    # converter.experimental_new_converter = True
-    # # converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS,
-    #                                        tf.lite.OpsSet.SELECT_TF_OPS]
-    # converter.convert()
-    # am.convert_to_pb('./test_model')
-    am.convert_to_pb('./test')

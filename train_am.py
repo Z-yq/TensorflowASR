@@ -35,6 +35,7 @@ class AM_Trainer():
         self.am = AM(config)
         self.am.load_model(training=True)
         if self.am.model_type!='MultiTask':
+            print('am_dataloder')
             self.dg = AM_DataLoader(config)
         else:
             self.dg=MultiTask_DataLoader(config)
@@ -107,7 +108,7 @@ if __name__ == '__main__':
 
     parse=argparse.ArgumentParser()
     parse.add_argument('--data_config', type=str, default='./configs/am_data.yml', help='the am data config path')
-    parse.add_argument('--model_config', type=str, default='./configs/MultiConformer.yml', help='the am model config path')
+    parse.add_argument('--model_config', type=str, default='./configs/deepspeech2.yml', help='the am model config path')
     args=parse.parse_args()
 
     config=UserConfig(args.data_config,args.model_config)

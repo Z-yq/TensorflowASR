@@ -1,6 +1,6 @@
 
 model_config:
-  name: ConformerTransducer #ConformerTransducer/ConformerCTC/ConformerLAS
+  name: ConformerCTC #ConformerTransducer/ConformerCTC/ConformerLAS
   dmodel: 144
   reduction_factor: 4
   num_blocks: 16

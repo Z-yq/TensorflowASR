@@ -3,10 +3,10 @@ import tensorflow as tf
 
 
 from AMmodel.wav_model import WavePickModel
-from AMmodel.transducer_wrap_cfm import Transducer
-from AMmodel.ctc_wrap_cfm import CtcModel
-from AMmodel.las_wrap_cfm import LAS,LASConfig
-from utils.tools import merge_two_last_dims
+from AMmodel.transducer_wrap import Transducer
+from AMmodel.ctc_wrap import CtcModel
+from AMmodel.las_wrap import LAS,LASConfig
+from utils.tools import merge_two_last_dims,shape_list
 from AMmodel.layers.switchnorm import SwitchNormalization
 from AMmodel.layers.multihead_attention import MultiHeadAttention
 
@@ -259,6 +259,7 @@ class ConformerEncoder(tf.keras.Model):
             odim=dmodel, reduction_factor=reduction_factor,
             dropout=dropout
         )
+        self.dropout=dropout
         self.conformer_blocks = []
         self.add_wav_info=add_wav_info
         if self.add_wav_info:
@@ -285,11 +286,19 @@ class ConformerEncoder(tf.keras.Model):
             outputs = mel_outputs+wav_outputs
         else:
             outputs = self.conv_subsampling(inputs, training=training)
-        encoder_outputs=[]
+        if training:
+            B,T,V=shape_list(outputs)
+            mask1=tf.random.uniform([B,1,V])
+            mask2=tf.random.uniform([B,T,1])
+            mask1=tf.where(mask1<0.1,0.,1.)
+            mask2=tf.where(mask2<0.1,0.,1.)
+            mask1=tf.cast(mask1,tf.float32)
+            mask2=tf.cast(mask2,tf.float32)
+            outputs=outputs*mask1*mask2
         for cblock in self.conformer_blocks:
             outputs = cblock(outputs, training=training)
-            encoder_outputs.append(outputs)
-        return encoder_outputs
+
+        return outputs
 
     def get_config(self):
         conf = super(ConformerEncoder, self).get_config()
@@ -425,31 +434,3 @@ class BeamCNN(tf.keras.Model):
         outputs+=self.out_cnn(block_outputs,training=training)
         return outputs
 
-if __name__ == '__main__':
-    from utils.user_config import UserConfig
-    from utils.text_featurizers import TextFeaturizer
-    from utils.speech_featurizers import SpeechFeaturizer
-    import os
-    import time
-    os.environ['CUDA_VISIBLE_DEVICES']='1'
-    config=UserConfig(r'D:\TF2-ASR\configs\am_data.yml',r'D:\TF2-ASR\configs\conformer.yml')
-    config['decoder_config'].update({'model_type':'LAS'})
-
-    Tfer=TextFeaturizer(config['decoder_config'])
-    SFer=SpeechFeaturizer(config['speech_config'])
-    f,c=SFer.compute_feature_dim()
-    config['model_config']['LAS_decoder'].update({'n_classes': Tfer.num_classes})
-    config['model_config']['LAS_decoder'].update({'startid': Tfer.start})
-
-    ct=ConformerLAS(config['model_config'],training=False)
-    # ct.add_featurizers(Tfer)
-    x=tf.ones([1,300,f,c])
-    length=tf.constant([300])
-    out=ct._build([1,300,f,c],training=True)
-    ct.inference(x,length//4)
-    s=time.time()
-    a=ct.inference(x,length//4)
-    e=time.time()
-    print(e-s,a)
-    # ct.summary()
-    # print(out)

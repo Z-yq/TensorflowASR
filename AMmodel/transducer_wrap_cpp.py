@@ -1,10 +1,12 @@
 import os
 import tensorflow as tf
+import numpy as np
 from utils.tools import shape_list, get_shape_invariants, merge_repeated
+
 from utils.text_featurizers import TextFeaturizer
 from AMmodel.layers.time_frequency import Melspectrogram, Spectrogram
 from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
-
+from AMmodel.ctc_attention import CTCAttention
 class TransducerPrediction(tf.keras.Model):
     def __init__(self,
                  vocabulary_size: int,
@@ -141,6 +143,7 @@ class Transducer(tf.keras.Model):
             self.mel_layer.trainable = speech_config['trainable_kernel']
 
         self.ctc_classes=tf.keras.layers.Dense(vocabulary_size,name='ctc_classes')
+        self.ctc_attention=CTCAttention(encoder.dmodel,vocabulary_size,self.ctc_classes,embed_layer=self.predict_net.embed)
         self.wav_info = speech_config['add_wav_info']
         if self.wav_info:
             assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
@@ -149,10 +152,24 @@ class Transducer(tf.keras.Model):
         self.endid = 1
         self.max_iter = 10
 
-    def _build(self, sample_shape):  # Call on real data for building model
-        features = tf.random.normal(shape=sample_shape)
-        predicted = tf.constant([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
-        return self([features, predicted], training=True)
+    def _build(self, shape):  # Call on real data for building model
+
+
+        batch = shape[0]
+        inputs = np.random.normal(size=shape).astype(np.float32)
+        if self.mel_layer is not None:
+            input_lengths = np.array([shape[1] // 4 // self.mel_layer.n_hop] * batch, 'int32')
+        else:
+            input_lengths = np.array([shape[1] // 4] * batch, 'int32')
+
+        targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]] * batch)
+        targets = targets[:, :, np.newaxis]
+        targets_lengths = np.array([9] * batch)
+        self([inputs, input_lengths,
+             targets, targets_lengths],training=True)
+
+
+
 
     def save_seperate(self, path_to_dir: str):
         self.encoder.save(os.path.join(path_to_dir, "encoder"))
@@ -167,7 +184,7 @@ class Transducer(tf.keras.Model):
 
     # @tf.function(experimental_relax_shapes=True)
     def call(self,inputs, training=False):
-        features, predicted=inputs
+        features, input_lengths,targets, targets_lengths=inputs
 
         if self.mel_layer is not None:
             if self.wav_info :
@@ -181,12 +198,15 @@ class Transducer(tf.keras.Model):
         else:
             enc = self.encoder(features, training=training)
 
-        pred = self.predict_net(predicted, training=training)
-        outputs = self.joint_net([enc[-1], pred], training=training)
-        ctc_outputs=self.ctc_classes(enc[-1],training=training)
+        pred = self.predict_net(targets, training=training)
+        outputs = self.joint_net([enc, pred], training=training)
+        ctc_outputs=self.ctc_classes(enc,training=training)
+        ctc_att_out,ctc_alig_out=self.ctc_attention(enc,input_lengths,targets,targets_lengths)
         # outputs = self.joint_net([enc, pred], training=training)
 
-        return outputs,ctc_outputs
+        return outputs,ctc_outputs,ctc_att_out,ctc_alig_out
+
+
 
     def add_featurizers(self,
                         text_featurizer: TextFeaturizer):
@@ -313,4 +333,6 @@ class Transducer(tf.keras.Model):
             conf = self.encoder.get_config()
         conf.update(self.predict_net.get_config())
         conf.update(self.joint_net.get_config())
+        conf.update(self.ctc_classes.get_config())
+        conf.update(self.ctc_attention.get_config())
         return conf

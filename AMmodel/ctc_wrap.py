@@ -1,7 +1,8 @@
 
 import tensorflow as tf
 from AMmodel.layers.time_frequency import Spectrogram,Melspectrogram
-from AMmodel.wav_model import WavePickModel
+from AMmodel.ctc_attention import CTCAttention
+import numpy as np
 try:
     from ctc_decoders import ctc_greedy_decoder, ctc_beam_search_decoder
     USE_TF=0
@@ -40,18 +41,39 @@ class CtcModel(tf.keras.Model):
                                                 )
             self.mel_layer.trainable=speech_config['trainable_kernel']
         self.wav_info=speech_config['add_wav_info']
+
+
+
         if self.wav_info:
             assert speech_config['use_mel_layer']==True,'shold set use_mel_layer is True'
 
         self.fc = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Dense(units=num_classes, activation="linear",
                                   use_bias=True), name="fully_connected")
+        self.alig_attention = CTCAttention(self.encoder.dmodel, num_classes, self.fc,)
+
+
         self.recognize_pb=None
-    def _build(self, sample_shape):
-        features = tf.random.normal(shape=sample_shape)
-        self(features, training=False)
+    def _build(self, shape):
+
+        batch = shape[0]
+        inputs = np.random.normal(size=shape).astype(np.float32)
+        if self.mel_layer is not None:
+            input_lengths = np.array([shape[1] // 4 // self.mel_layer.n_hop] * batch, 'int32')
+        else:
+            input_lengths = np.array([shape[1] // 4] * batch, 'int32')
+
+        targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]] * batch)
+
+        targets_lengths = np.array([9] * batch)
+        self([inputs, input_lengths,
+             targets, targets_lengths])
+
+
+
 
     def summary(self, line_length=None, **kwargs):
+        self.encoder.summary(line_length=line_length, **kwargs)
         super(CtcModel, self).summary(line_length, **kwargs)
 
     def add_featurizers(self,
@@ -61,8 +83,8 @@ class CtcModel(tf.keras.Model):
         self.text_featurizer = text_featurizer
 
 
-    # @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs, training=False, **kwargs):
+    def call(self,x, training=False, **kwargs):
+        inputs, input_lengths, targets, targets_lengths=x
         if self.mel_layer is not None:
             if self.wav_info :
                 wav=inputs
@@ -75,9 +97,23 @@ class CtcModel(tf.keras.Model):
         else:
             enc_outputs = self.encoder(inputs, training=training)
         outputs = self.fc(enc_outputs, training=training)
+        att_output,alig_output=self.alig_attention(enc_outputs,input_lengths,targets,targets_lengths)
+        return outputs,att_output,alig_output
+    def inference(self,inputs,training=False):
+        if self.mel_layer is not None:
+            if self.wav_info:
+                wav = inputs
+                inputs = self.mel_layer(inputs)
+            else:
+                inputs = self.mel_layer(inputs)
+            # print(inputs.shape)
+        if self.wav_info:
+            enc_outputs = self.encoder([inputs, wav], training=training)
+        else:
+            enc_outputs = self.encoder(inputs, training=training)
+        outputs = self.fc(enc_outputs, training=training)
 
         return outputs
-
     def return_pb_function(self,shape,beam=False):
         @tf.function(
             experimental_relax_shapes=True,
@@ -89,7 +125,7 @@ class CtcModel(tf.keras.Model):
         )
         def recognize_tflite(features,length):
 
-            logits = self.call(features, training=False)
+            logits = self.inference(features, training=False)
 
             probs = tf.nn.softmax(logits)
             decoded = tf.keras.backend.ctc_decode(
@@ -106,7 +142,7 @@ class CtcModel(tf.keras.Model):
         )
         def recognize_beam_tflite( features,length):
 
-            logits = self.call(features, training=False)
+            logits = self.inference(features, training=False)
 
             probs = tf.nn.softmax(logits)
             decoded = tf.keras.backend.ctc_decode(
@@ -126,4 +162,5 @@ class CtcModel(tf.keras.Model):
         else:
             config = self.encoder.get_config()
         config.update(self.fc.get_config())
+        config.update(self.alig_attention.get_config())
         return config

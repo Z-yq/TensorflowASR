@@ -8,10 +8,11 @@ from tensorflow_addons.seq2seq import BahdanauAttention
 
 from tensorflow_addons.seq2seq import Decoder
 from AMmodel.layers.decoder import dynamic_decode
-from AMmodel.layers.time_frequency import Spectrogram,Melspectrogram
+
 from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
 
-class LASConfig():
+
+class AttentionConfig():
     def __init__(self,
                  n_classes,
                  embedding_hidden_size=512,
@@ -22,14 +23,13 @@ class LASConfig():
                  prenet_activation="mish",
                  prenet_dropout_rate=0.5,
                  n_lstm_decoder=1,
-                 decoder_lstm_units=1024,
-                 attention_dim=128,
+                 decoder_lstm_units=512,
+                 attention_dim=768,
                  attention_filters=32,
                  attention_kernel=31,
                  encoder_dim=128,
-                 startid=1,
+                 startid=0,
                  ):
-
         self.embedding_hidden_size = embedding_hidden_size
         self.initializer_range = initializer_range
         self.layer_norm_eps = layer_norm_eps
@@ -38,15 +38,13 @@ class LASConfig():
         self.prenet_activation = prenet_activation
         self.prenet_dropout_rate = prenet_dropout_rate
         self.n_lstm_decoder = n_lstm_decoder
-        self.decoder_lstm_units = decoder_lstm_units
         self.attention_dim = attention_dim
         self.attention_filters = attention_filters
         self.attention_kernel = attention_kernel
         self.n_classes = n_classes
-        self.encoder_dim=encoder_dim
-        self.startid=startid
-
-
+        self.encoder_dim = encoder_dim
+        self.startid = startid
+        self.decoder_lstm_units = decoder_lstm_units
 
 
 def get_initializer(initializer_range=0.02):
@@ -91,7 +89,7 @@ ACT2FN = {
 }
 
 
-class TrainingSampler(Sampler):
+class AttentionSampler(Sampler):
     """Training sampler for Seq2Seq training."""
 
     def __init__(
@@ -106,9 +104,7 @@ class TrainingSampler(Sampler):
         """Setup ground-truth mel outputs for decoder."""
         self.targets_lengths = targets_lengths
         self.set_batch_size(tf.shape(targets)[0])
-        self.targets = targets[
-                       :, self._reduction_factor - 1:: self._reduction_factor, :
-                       ]
+        self.targets = targets
         self.max_lengths = tf.tile([tf.shape(self.targets)[1]], [self._batch_size])
 
     @property
@@ -148,26 +144,7 @@ class TrainingSampler(Sampler):
         self._batch_size = batch_size
 
 
-class TestingSampler(TrainingSampler):
-    """Testing sampler for Seq2Seq training."""
-
-    def __init__(
-            self, config,
-    ):
-        super().__init__(config)
-
-    def next_inputs(self, time, outputs, state, sample_ids, **kwargs):
-        stop_token_prediction = kwargs.get("stop_token_prediction")
-        stop_token_prediction = tf.nn.sigmoid(stop_token_prediction)
-        finished = tf.cast(tf.round(stop_token_prediction), tf.bool)
-        finished = tf.reduce_all(finished)
-        next_inputs = tf.expand_dims(tf.argmax(outputs[:, -self.config.n_classes:], -1,tf.int32), axis=-1, name='predict')
-        next_state = state
-        return (finished, next_inputs, next_state)
-
-
 class LocationSensitiveAttention(BahdanauAttention):
-    """Tacotron-2 Location Sensitive Attention module."""
 
     def __init__(
             self,
@@ -193,8 +170,8 @@ class LocationSensitiveAttention(BahdanauAttention):
             use_bias=False,
             name="location_conv",
         )
-        self.location_layer = tf.keras.layers.Dense(
-            units=config.attention_dim, use_bias=False, name="location_layer"
+        self.location_layer = tf.keras.layers.Conv1D(
+            config.attention_dim, config.attention_kernel,padding='same', use_bias=False, name="location_layer"
         )
 
         self.v = tf.keras.layers.Dense(1, use_bias=True, name="scores_attention")
@@ -276,7 +253,6 @@ DecoderCellState = collections.namedtuple(
     "DecoderCellState",
     [
         "attention_lstm_state",
-        "decoder_lstms_state",
         "context",
         "time",
         "state",
@@ -286,8 +262,9 @@ DecoderCellState = collections.namedtuple(
 )
 
 DecoderOutput = collections.namedtuple(
-    "DecoderOutput", ("classes_output", "token_output", "sample_id")
+    "DecoderOutput", ("classes_output", "sample_id")
 )
+
 
 class Prenet(tf.keras.layers.Layer):
     """Tacotron-2 prenet."""
@@ -315,35 +292,25 @@ class Prenet(tf.keras.layers.Layer):
             outputs = self.dropout(outputs, training=True)
         return outputs
 
+
 class DecoderCell(tf.keras.layers.AbstractRNNCell):
-    """Tacotron-2 custom decoder cell."""
 
     def __init__(self,
                  config,
-                 training,
-                 enable_tflite_convertible=True,
+                 fc_layer,
+                 embed_layer,
                  **kwargs):
         """Init variables."""
         super().__init__(**kwargs)
-        self.training = training
-        self.enable_tflite_convertible = enable_tflite_convertible
+
         self.attention_lstm = LayerNormLSTMCell(
             units=config.decoder_lstm_units, name="attention_lstm_cell"
         )
-        self.decoder_embedding = tf.keras.layers.Embedding(config.n_classes, config.embedding_hidden_size)
-        lstm_cells = []
-        for i in range(config.n_lstm_decoder):
-            lstm_cell = tf.keras.layers.LSTMCell(
-                units=config.decoder_lstm_units, name="lstm_cell_._{}".format(i)
-            )
-            lstm_cells.append(lstm_cell)
-        self.decoder_lstms = tf.keras.layers.StackedRNNCells(
-            lstm_cells, name="decoder_lstms"
-        )
+        if embed_layer is None:
+            self.decoder_embedding = tf.keras.layers.Embedding(config.n_classes, config.embedding_hidden_size)
+        else:
+            self.decoder_embedding=embed_layer
         self.prenet = Prenet(config, name="prenet")
-        # define attention layer.
-
-        # create location-sensitive attention.
 
         self.attention_layer = LocationSensitiveAttention(
             config,
@@ -352,12 +319,7 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
             memory_sequence_length=None,
             is_cumulate=True,
         )
-        self.classes_projection = tf.keras.layers.Dense(
-            units=config.n_classes, name="classes_projection"
-        )
-        self.stop_projection = tf.keras.layers.Dense(
-            units=1, name="stop_projection"
-        )
+        self.classes_projection = fc_layer
 
         self.config = config
 
@@ -367,14 +329,13 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
     @property
     def output_size(self):
         """Return output (mel) size."""
-        return self.classes_projection.units
+        return self.config.n_classes
 
     @property
     def state_size(self):
         """Return hidden state size."""
         return DecoderCellState(
             attention_lstm_state=self.attention_lstm.state_size,
-            decoder_lstms_state=self.decoder_lstms.state_size,
             time=tf.TensorShape([]),
             attention=self.config.attention_dim,
             state=self.alignment_size,
@@ -387,24 +348,19 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
         initial_attention_lstm_cell_states = self.attention_lstm.get_initial_state(
             None, batch_size, dtype=tf.float32
         )
-        initial_decoder_lstms_cell_states = self.decoder_lstms.get_initial_state(
-            None, batch_size, dtype=tf.float32
-        )
+
         initial_context = tf.zeros(
             shape=[batch_size, self.config.encoder_dim], dtype=tf.float32
         )
         initial_state = self.attention_layer.get_initial_state(
             batch_size, size=self.alignment_size
         )
-        if self.enable_tflite_convertible:
-            initial_alignment_history = ()
-        else:
-            initial_alignment_history = tf.TensorArray(
+
+        initial_alignment_history = tf.TensorArray(
                 dtype=tf.float32, size=0, dynamic_size=True
             )
         return DecoderCellState(
             attention_lstm_state=initial_attention_lstm_cell_states,
-            decoder_lstms_state=initial_decoder_lstms_cell_states,
             time=tf.zeros([], dtype=tf.int32),
             context=initial_context,
             state=initial_state,
@@ -412,14 +368,14 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
             max_alignments=tf.zeros([batch_size], dtype=tf.int32),
         )
 
-    def call(self, inputs, states):
+    def call(self, inputs, states,training=False):
         """Call logic."""
-        # tf.print(inputs.shape)
-        decoder_input = self.decoder_embedding(inputs)[:,0,:]
+        # print(inputs.shape)
+        decoder_input = self.decoder_embedding(inputs)[:, 0, :]
 
         # 1. apply prenet for decoder_input.
         prenet_out = self.prenet(
-            decoder_input, training=self.training
+            decoder_input, training=training
         )  # [batch_size, dim]
 
         # 2. concat prenet_out and prev context vector
@@ -431,38 +387,21 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
 
         # 3. compute context, alignment and cumulative alignment.
         prev_state = states.state
-        if not self.enable_tflite_convertible:
-            prev_alignment_history = states.alignment_history
+
+        prev_alignment_history = states.alignment_history
         prev_max_alignments = states.max_alignments
         context, alignments, state = self.attention_layer(
             [attention_lstm_output, prev_state, prev_max_alignments],
-            training=self.training,
+            training=training,
         )
 
-        # 4. run decoder lstm(s)
-        decoder_lstms_input = tf.concat([attention_lstm_output, context], axis=-1)
-        decoder_lstms_output, next_decoder_lstms_state = self.decoder_lstms(
-            decoder_lstms_input, states.decoder_lstms_state
-        )
+        decoder_outputs = self.classes_projection(context[:, tf.newaxis, :])
+        decoder_outputs = tf.squeeze(decoder_outputs, 1)
 
-        # 5. compute frame feature and stop token.
-        projection_inputs = tf.concat([decoder_lstms_output, context], axis=-1)
-        decoder_outputs = self.classes_projection(projection_inputs)
+        alignment_history = prev_alignment_history.write(states.time, alignments)
 
-        stop_inputs = tf.concat([decoder_lstms_output, decoder_outputs], axis=-1)
-        stop_tokens = self.stop_projection(stop_inputs)
-
-        # 6. save alignment history to visualize.
-        if self.enable_tflite_convertible:
-            alignment_history = ()
-        else:
-            alignment_history = prev_alignment_history.write(states.time,
-                                                             alignments)
-
-        # 7. return new states.
         new_states = DecoderCellState(
             attention_lstm_state=next_attention_lstm_state,
-            decoder_lstms_state=next_decoder_lstms_state,
             time=states.time + 1,
             context=context,
             state=state,
@@ -470,23 +409,20 @@ class DecoderCell(tf.keras.layers.AbstractRNNCell):
             max_alignments=tf.argmax(alignments, -1, output_type=tf.int32),
         )
 
-        return (decoder_outputs, stop_tokens), new_states
+        return decoder_outputs, new_states
 
 
-class LASDecoder(Decoder):
-    """LAS Decoder."""
+class AttentionDecoder(Decoder):
 
     def __init__(self,
                  decoder_cell,
                  decoder_sampler,
-
                  output_layer=None,
-                 enable_tflite_convertible=False):
+                 ):
         """Initial variables."""
         self.cell = decoder_cell
         self.sampler = decoder_sampler
         self.output_layer = output_layer
-        self.enable_tflite_convertible = enable_tflite_convertible
 
     def setup_decoder_init_state(self, decoder_init_state):
         self.initial_state = decoder_init_state
@@ -500,22 +436,20 @@ class LASDecoder(Decoder):
             classes_output=tf.nest.map_structure(
                 lambda shape: tf.TensorShape(shape), self.cell.output_size
             ),
-            token_output=tf.TensorShape(self.sampler.reduction_factor),
-            sample_id=tf.TensorShape([1]) \
-                if self.enable_tflite_convertible \
-                else self.sampler.sample_ids_shape  # tf.TensorShape([])
+
+            sample_id=self.sampler.sample_ids_shape  # tf.TensorShape([])
         )
 
     @property
     def output_dtype(self):
-        return DecoderOutput(tf.float32, tf.float32, self.sampler.sample_ids_dtype)
+        return DecoderOutput(tf.float32, self.sampler.sample_ids_dtype)
 
     @property
     def batch_size(self):
         return self.sampler._batch_size
 
     def step(self, time, inputs, state, training=False):
-        (classes_outputs, stop_tokens), cell_state = self.cell(
+        classes_outputs, cell_state = self.cell(
             inputs, state, training=training
         )
         if self.output_layer is not None:
@@ -528,52 +462,24 @@ class LASDecoder(Decoder):
             outputs=classes_outputs,
             state=cell_state,
             sample_ids=sample_ids,
-            stop_token_prediction=stop_tokens,
         )
 
-        outputs = DecoderOutput(classes_outputs, stop_tokens, sample_ids)
+        outputs = DecoderOutput(classes_outputs, sample_ids)
         return (outputs, next_state, next_inputs, finished)
 
 
-class LAS(tf.keras.Model):
+class CTCAttention(tf.keras.Model):
 
-    def __init__(self, encoder, config, training, enable_tflite_convertible=False,speech_config=dict, **kwargs):
+    def __init__(self, encoder_dim, n_classes, fc_layer,embed_layer=None, **kwargs):
         super().__init__(self, **kwargs)
-        self.encoder = encoder
-        self.decoder_cell = DecoderCell(
-            config, training=training, name="decoder_cell",
-            enable_tflite_convertible=enable_tflite_convertible
-        )
-        self.decoder = LASDecoder(
+        self.att_config = AttentionConfig(n_classes, encoder_dim=encoder_dim)
+        self.n_classes=n_classes
+        self.decoder_cell = DecoderCell(self.att_config, fc_layer,embed_layer,name="decoder_cell")
+        self.decoder = AttentionDecoder(
             self.decoder_cell,
-            TrainingSampler(config) if training is True else TestingSampler(config),
-            enable_tflite_convertible=enable_tflite_convertible
+            AttentionSampler(self.att_config)
         )
-        self.config = config
-        self.speech_config = speech_config
-        self.mel_layer = None
-        if speech_config['use_mel_layer']:
-            if speech_config['mel_layer_type'] == 'Melspectrogram':
-                self.mel_layer = Melspectrogram(sr=speech_config['sample_rate'],
-                                                n_mels=speech_config['num_feature_bins'],
-                                                n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
-                                                n_dft=1024,
-                                                trainable_fb=speech_config['trainable_kernel']
-                                                )
-            else:
-                self.mel_layer = Spectrogram(
-                                             n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000),
-                                             n_dft=1024,
-                                             trainable_kernel=speech_config['trainable_kernel']
-                                             )
-            self.mel_layer.trainable = speech_config['trainable_kernel']
-        self.wav_info = speech_config['add_wav_info']
-        if self.wav_info:
-            assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
-        self.use_window_mask = False
-        self.maximum_iterations = 1000 if training else 50
-        self.enable_tflite_convertible = enable_tflite_convertible
-
+        self.maximum_iterations=1000
     def setup_window(self, win_front, win_back):
         """Call only for inference."""
         self.use_window_mask = True
@@ -584,75 +490,19 @@ class LAS(tf.keras.Model):
         """Call only for inference."""
         self.maximum_iterations = maximum_iterations
 
-    def _build(self, shape, training):
+    def call(self,
+             encoder_hidden_states,
+             input_lengths,
+             targets,
+             targets_lengths,
+             training=False,
+             ):
+        targets = tf.expand_dims(targets, -1)
 
-        batch=shape[0]
-        inputs = np.random.normal(size=shape).astype(np.float32)
-        if self.mel_layer is not None:
-            input_lengths = np.array([shape[1] // 4//self.mel_layer.n_hop] * batch, 'int32')
-        else:
-            input_lengths = np.array([shape[1]//4]*batch,'int32')
-
-        if training:
-            targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]]*batch)
-            targets = targets[:, :, np.newaxis]
-            targets_lengths = np.array([9]*batch)
-            self([inputs,input_lengths],
-                 targets,targets_lengths)
-        else:
-            self(
-                [inputs,
-                input_lengths],
-
-                training=training,
-            )
-    def add_featurizers(self,
-                        text_featurizer):
-        """
-        Function to add featurizer to model to convert to end2end tflite
-        Args:
-            text_featurizer: TextFeaturizer instance
-            scorer: external language model scorer
-        """
-
-        self.text_featurizer = text_featurizer
-    # @tf.function(experimental_relax_shapes=True)
-    def call(
-            self,
-            inputs,
-            targets=None,
-            targets_lengths=None,
-            use_window_mask=False,
-            win_front=2,
-            win_back=3,
-            training=False,
-    ):
-        """Call logic."""
-        # Encoder Step.
-        # input_lengths=tf.squeeze(input_lengths,-1)
-        inputs, input_lengths=inputs
-        if self.wav_info:
-            wav=inputs
-        if self.mel_layer is not None:
-            inputs=self.mel_layer(inputs)
-        if self.wav_info:
-            encoder_hidden_states = self.encoder(
-                [inputs,wav], training=training
-            )[-1]
-        else:
-            encoder_hidden_states = self.encoder(
-                inputs, training=training
-            )[-1]
         batch_size = tf.shape(encoder_hidden_states)[0]
         alignment_size = tf.shape(encoder_hidden_states)[1]
 
-        # Setup some initial placeholders for decoder step. Include:
-        # 1. mel_outputs, mel_lengths for teacher forcing mode.
-        # 2. alignment_size for attention size.
-        # 3. initial state for decoder cell.
-        # 4. memory (encoder hidden state) for attention mechanism.
-        if targets is not None:
-            self.decoder.sampler.setup_target(targets=targets, targets_lengths=targets_lengths)
+        self.decoder.sampler.setup_target(targets=targets, targets_lengths=targets_lengths)
         self.decoder.sampler.set_batch_size(batch_size)
         self.decoder.cell.set_alignment_size(alignment_size)
 
@@ -663,105 +513,23 @@ class LAS(tf.keras.Model):
             memory=encoder_hidden_states,
             memory_sequence_length=input_lengths,  # use for mask attention.
         )
-        if use_window_mask:
-            self.decoder.cell.attention_layer.setup_window(
-                win_front=win_front, win_back=win_back
-            )
 
         # run decode step.
         (
-            (classes_prediction, stop_token_prediction, _),
+            (classes_prediction, _),
             final_decoder_state,
             _,
         ) = dynamic_decode(self.decoder,
                            maximum_iterations=self.maximum_iterations,
-                           enable_tflite_convertible=self.enable_tflite_convertible)
+                           enable_tflite_convertible=False,
+                           training=training)
 
         decoder_output = tf.reshape(
-            classes_prediction, [batch_size, -1, self.config.n_classes]
+            classes_prediction, [batch_size, -1,  self.n_classes]
         )
-        stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
 
-        if self.enable_tflite_convertible:
-            mask = tf.math.not_equal(
-                tf.cast(tf.reduce_sum(tf.abs(decoder_output), axis=-1),
-                        dtype=tf.int32),
-                0)
-            decoder_output = tf.expand_dims(
-                tf.boolean_mask(decoder_output, mask), axis=0)
-            alignment_history = ()
-        else:
-            alignment_history = tf.transpose(
-                final_decoder_state.alignment_history.stack(), [1, 2, 0]
-            )
-
-        return decoder_output, stop_token_prediction, alignment_history
-    def return_pb_function(self,shape):
-        @tf.function(
-            experimental_relax_shapes=True,
-            input_signature=[
-                tf.TensorSpec(shape, dtype=tf.float32),
-                tf.TensorSpec([None, 1], dtype=tf.int32),
-            ],
+        alignment_history = tf.transpose(
+            final_decoder_state.alignment_history.stack(), [1, 2, 0]
         )
-        def inference( inputs, input_lengths):
-            """Call logic."""
 
-            # Encoder Step.
-            input_lengths=tf.squeeze(input_lengths,-1)
-
-            if self.wav_info:
-                wav = inputs
-            if self.mel_layer is not None:
-                inputs = self.mel_layer(inputs)
-            if self.wav_info:
-                encoder_hidden_states = self.encoder(
-                    [inputs, wav], training=False
-                )[-1]
-            else:
-                encoder_hidden_states = self.encoder(
-                    inputs, training=False
-                )[-1]
-            batch_size = tf.shape(encoder_hidden_states)[0]
-            alignment_size = tf.shape(encoder_hidden_states)[1]
-
-            # Setup some initial placeholders for decoder step. Include:
-            # 1. batch_size for inference.
-            # 2. alignment_size for attention size.
-            # 3. initial state for decoder cell.
-            # 4. memory (encoder hidden state) for attention mechanism.
-            # 5. window front/back to solve long sentence synthesize problems. (call after setup memory.)
-            self.decoder.sampler.set_batch_size(batch_size)
-            self.decoder.cell.set_alignment_size(alignment_size)
-            # self.setup_maximum_iterations(alignment_size)
-            self.decoder.setup_decoder_init_state(
-                self.decoder.cell.get_initial_state(batch_size)
-            )
-            self.decoder.cell.attention_layer.setup_memory(
-                memory=encoder_hidden_states,
-                memory_sequence_length=input_lengths,  # use for mask attention.
-            )
-            if self.use_window_mask:
-                self.decoder.cell.attention_layer.setup_window(
-                    win_front=self.win_front, win_back=self.win_back
-                )
-
-            (
-                (classes_prediction, stop_token_prediction, _),
-                final_decoder_state,
-                _,
-            ) = dynamic_decode(self.decoder, maximum_iterations=self.maximum_iterations)
-
-            decoder_output = tf.reshape(
-                classes_prediction, [batch_size, -1, self.config.n_classes]
-            )
-            stop_token_prediction = tf.reshape(stop_token_prediction, [batch_size, -1])
-
-            alignment_history = tf.transpose(
-                final_decoder_state.alignment_history.stack(), [1, 2, 0]
-            )
-            decoder_output=tf.argmax(decoder_output,-1)
-            return [decoder_output]
-        self.recognize_pb=inference
-
-
+        return decoder_output, alignment_history

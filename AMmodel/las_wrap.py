@@ -573,7 +573,9 @@ class LAS(tf.keras.Model):
         self.use_window_mask = False
         self.maximum_iterations = 1000 if training else 50
         self.enable_tflite_convertible = enable_tflite_convertible
-
+        self.fc = tf.keras.layers.TimeDistributed(
+            tf.keras.layers.Dense(config.n_classes, activation="linear",
+                                  use_bias=True), name="fully_connected")
     def setup_window(self, win_front, win_back):
         """Call only for inference."""
         self.use_window_mask = True
@@ -645,7 +647,7 @@ class LAS(tf.keras.Model):
             )
         batch_size = tf.shape(encoder_hidden_states)[0]
         alignment_size = tf.shape(encoder_hidden_states)[1]
-
+        ctc_outputs=self.fc(encoder_hidden_states)
         # Setup some initial placeholders for decoder step. Include:
         # 1. mel_outputs, mel_lengths for teacher forcing mode.
         # 2. alignment_size for attention size.
@@ -695,7 +697,7 @@ class LAS(tf.keras.Model):
                 final_decoder_state.alignment_history.stack(), [1, 2, 0]
             )
 
-        return decoder_output, stop_token_prediction, alignment_history
+        return decoder_output,ctc_outputs, stop_token_prediction, alignment_history
     def return_pb_function(self,shape):
         @tf.function(
             experimental_relax_shapes=True,
