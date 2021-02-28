@@ -12,3 +12,4 @@
 *.meta
 *.json
 *.npz
+*.py~
