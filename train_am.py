@@ -61,8 +61,8 @@ class AM_Trainer():
         else:
             factor=1
         all_train_step=self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs']*factor
-        lr=CustomSchedule(config['model_config']['dmodel'],warmup_steps=int(all_train_step*0.1))
-        config['optimizer_config']['learning_rate']=lr
+        # lr=CustomSchedule(config['model_config']['dmodel'],warmup_steps=int(all_train_step*0.1))
+        # config['optimizer_config']['learning_rate']=lr
         self.opt = tf.keras.optimizers.Adamax(**config['optimizer_config'])
         self.runner.set_total_train_steps(all_train_step)
         self.runner.compile(self.STT,self.opt)
