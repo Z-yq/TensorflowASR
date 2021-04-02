@@ -16,11 +16,16 @@
 </p>
 <p align="center">
 欢迎使用并反馈bug
-
 [English](https://github.com/Z-yq/TensorflowASR/blob/master/README_en.md)|中文版
 </p>
 
+## 其它项目
 
+TTS：https://github.com/Z-yq/TensorflowTTS
+
+NLU:  -
+
+BOT:  -
 
 
 ## Mel Layer
@@ -84,7 +89,7 @@ Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
 - 优化了一些逻辑
 - Change RNNT predict to support C++
 - Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
-    
+  
 
 ## Supported Structure
 -  **CTC**
@@ -137,8 +142,9 @@ Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
     ```
 2. 下载bert的预训练模型，用于LM的辅助训练，如果你不需要LM可以跳过:
             
+    
         https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA extraction code: 4hsa
-        
+    
 3. 修改配置文件 **_`am_data.yml`_** (in ./configs)来设置一些训练的选项，以及修改**model yaml**（如：./configs/conformer.yml） 里的`name`参数来选择模型结构。
 4. 然后执行命令:
   
@@ -170,7 +176,7 @@ Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
         am_result=am.decode(am_result[0])
         lm_result=lm.predict(am_result)
         lm_result = lm.decode(lm_result[0].numpy(), self.lm.word_featurizer)
-   
+      
     ```
 也可以使用**Tester** 来大批量测试数据验证你的模型性能:
 
