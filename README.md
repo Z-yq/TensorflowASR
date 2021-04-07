@@ -16,8 +16,10 @@
 </p>
 <p align="center">
 欢迎使用并反馈bug
-[English](https://github.com/Z-yq/TensorflowASR/blob/master/README_en.md)|中文版
 </p>
+
+[English](https://github.com/Z-yq/TensorflowASR/blob/master/README_en.md)|中文版
+
 
 ## 其它项目
 
