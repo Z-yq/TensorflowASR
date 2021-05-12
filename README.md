@@ -68,7 +68,7 @@ Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|RT
 ---------|----|------|----|-------|------|----------|-----------|-----|
 TransformerO2OE|True(False)|pan.baidu.com/s/1X11OE_sk7yNTjtDpU7sfvA|sxrw|aishell-1 text(30 epochs)|4.4|43M|10M|0.06|
 TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|0.13|
-Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
+PuncTransformer|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数据|-|38M|10M|0.005|
 
 **快速使用：**
 
@@ -88,6 +88,7 @@ Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
 ## What's New?
 
 最新更新
+- 增加了标点恢复的模型和预训练模型
 - 优化了一些逻辑
 - Change RNNT predict to support C++
 - Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
@@ -142,6 +143,22 @@ Transformer|True(True)|-|-|aishell2 text(10k steps)|8.6|233M|61M|0.31|
     text2
     ……
     ```
+   **punc_train_list**格式：
+   ```text
+    text1
+    text2
+    ……
+    ```
+   同LM的格式，每行的text包含标点，目前标点只支持每个字后跟一个标点，连续的标点视为无效。
+   
+   比如：
+   
+   这是：一个例子哦。 √
+   
+   这是：“一个例子哦”。 ×
+   
+   这是：一个例子哦“。 ×
+   
 2. 下载bert的预训练模型，用于LM的辅助训练，如果你不需要LM可以跳过:
             
     
