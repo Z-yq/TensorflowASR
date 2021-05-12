@@ -1,0 +1,48 @@
+train_list: './train.list'
+eval_list: './eval.list'
+punc_vocab:
+  model_type: 'LM'
+  vocabulary: './LMmodel/punc_tokens_ch.txt'
+  blank_at_zero: True
+  beam_width: 1
+punc_biaodian:
+  model_type: 'LM'
+  vocabulary: './LMmodel/punc_tokens_bd.txt'
+  blank_at_zero: True
+  beam_width: 1
+
+
+running_config:
+  batch_size: 32
+  train_steps_per_batches: 10
+  eval_steps_per_batches: 10
+  num_epochs: 200
+  outdir: './punc_models'
+  log_interval_steps: 300
+  eval_interval_steps: 500
+  save_interval_steps: 1000
+
+bert:
+  config_json: './LMmodel/bert/bert_config.json'
+  bert_ckpt: './LMmodel/bert/bert_model.ckpt'
+  bert_vocab: './LMmodel/bert/vocab.txt'
+
+
+model_config:
+  name: Transformer
+  num_layers: 3  #for encoder and decoder
+  d_model: 256
+  enc_embedding_dim: 512
+  dec_embedding_dim: 768
+  num_heads: 8
+  dff: 1024
+  pe_input: 1024
+  pe_target: 1024
+  rate: 0.1
+  one2one: True
+  include_decoder: False
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
