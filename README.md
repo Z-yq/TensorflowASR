@@ -68,7 +68,11 @@ Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|RT
 ---------|----|------|----|-------|------|----------|-----------|-----|
 TransformerO2OE|True(False)|pan.baidu.com/s/1X11OE_sk7yNTjtDpU7sfvA|sxrw|aishell-1 text(30 epochs)|4.4|43M|10M|0.06|
 TransformerO2OED|True(True)|pan.baidu.com/s/1acvCRpS2j16dxLoCyToB6A|jrfi|aishell2 text(10k steps)|6.2|217M|61M|0.13|
-PuncTransformer|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数据|-|38M|10M|0.005|
+
+**Punc:**
+Model Name|O2O(Decoder)| link |code|train data|txt cer|model size|params size|RTF|
+---------|----|------|----|-------|------|----------|-----------|-----|
+PuncModel|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数据|-|38M|10M|0.005|
 
 **快速使用：**
 
