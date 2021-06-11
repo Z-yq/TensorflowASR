@@ -17,8 +17,9 @@
 <p align="center">
 欢迎使用并反馈bug
 </p>
-
 [English](https://github.com/Z-yq/TensorflowASR/blob/master/README_en.md)|中文版
+
+
 
 
 ## 其它项目
@@ -48,6 +49,15 @@ C++的demo已经提供。
 测试于TensorflowC 2.3.0版本
 
 详细见目录 [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
+
+
+
+# Streaming Conformer
+
+现在支持流式的Conformer结构啦，同epoch训练下，和全局conformer的CER仅差0.8%。
+
+![streaming_conformer](./streaming_conformer.svg)
+
 ## Pretrained Model
 
 所有结果测试于 _`AISHELL TEST`_ 数据集.
@@ -76,7 +86,21 @@ PuncModel|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数�
 
 **快速使用：**
 
-下载预训练模型，修改 am_data.yml/lm_data.yml 里的目录参数（running_config下的outdir参数），并在修改后的目录中添加 checkpoints 目录，
+run-test.py中默认的模型为 ：
+
+AM: ConformerCTC(M)
+
+LM：TransformerO2OE
+
+Punc：PuncModel
+
+全部下载，放置于代码目录下即可运行。
+
+
+
+指定运行模型：
+
+修改 am_data.yml/lm_data.yml 里的目录参数（running_config下的outdir参数），并在修改后的目录中添加 checkpoints 目录，
 
 将model_xx.h5(xx为数字)文件放入对应的checkpoints目录中，
 
@@ -92,22 +116,24 @@ PuncModel|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数�
 ## What's New?
 
 最新更新
+
+- :1st_place_medal: [2021.06.11]增加了Streaming Conformer结构目前，已经验证推举配置的训练结果只和全局的conformer相差1%左右。
+
 - 增加了标点恢复的模型和预训练模型
 - 优化了一些逻辑
-- Change RNNT predict to support C++
-- Add C++ Inference Demo,detail in [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
+- 添加了C++ 接口 Demo，详见 [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
   
 
 ## Supported Structure
--  **CTC**
--  **Transducer**
+-  **CTC**+**Streaming**
+-  **Transducer**+**Streaming**
 -  **LAS**
 -  **MultiTaskCTC**
 
 ## Supported Models
 
 -   **Conformer** 
--   **ESPNet**:`Efficient Spatial Pyramid of Dilated Convolutions`
+-   **StreamingConformer**
 -   **DeepSpeech2**
 -   **Transformer**` 拼音->汉字` 
        -  O2O-Encoder-Decoder `完整的transformer结构，拼音与汉字一一对应的形式
@@ -141,18 +167,32 @@ PuncModel|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数�
     ……
     ```
 
-    **lm_train_list** 格式:
-    ```text
-    text1
-    text2
-    ……
-    ```
+    例如：
+    
+    /opt/data/test.wav	这个是一个例子
+    
+    
+    
+   **lm_train_list** 格式:
+   
+   ```text
+   text1
+   text2
+   ……
+   ```
+   例如：
+   
+   这是一个例子
+   
+   
+   
    **punc_train_list**格式：
+   
    ```text
     text1
     text2
     ……
-    ```
+   ```
    同LM的格式，每行的text包含标点，目前标点只支持每个字后跟一个标点，连续的标点视为无效。
    
    比如：
@@ -165,10 +205,11 @@ PuncModel|True(False)|pan.baidu.com/s/1b_6eKEWfL50pmvuS7ZRimg|47f5|NLP开源数�
    
 2. 下载bert的预训练模型，用于LM的辅助训练，如果你不需要LM可以跳过:
             
-    
+   
         https://pan.baidu.com/s/1_HDAhfGZfNhXS-cYoLQucA extraction code: 4hsa
     
 3. 修改配置文件 **_`am_data.yml`_** (in ./configs)来设置一些训练的选项，以及修改**model yaml**（如：./configs/conformer.yml） 里的`name`参数来选择模型结构。
+
 4. 然后执行命令:
   
      ```shell

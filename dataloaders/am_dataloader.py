@@ -17,7 +17,8 @@ class AM_DataLoader():
 
         self.text_config = config_dict['decoder_config']
         self.augment_config = config_dict['augments_config']
-
+        self.streaming=self.speech_config['streaming']
+        self.bucket=self.speech_config['sample_rate']*self.speech_config['streaming_bucket']
         self.batch = config_dict['learning_config']['running_config']['batch_size']
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.text_featurizer = TextFeaturizer(self.text_config)
@@ -158,7 +159,10 @@ class AM_DataLoader():
             if self.speech_config['only_chinese']:
                 txt = self.only_chinese(txt)
             if self.speech_config['use_mel_layer']:
-                speech_feature = data / np.abs(data).max()
+                if not self.streaming:
+                    speech_feature = data / np.abs(data).max()
+                else:
+                    speech_feature = data
                 speech_feature = np.expand_dims(speech_feature, -1)
                 in_len = len(speech_feature) // (
                         self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
@@ -185,6 +189,8 @@ class AM_DataLoader():
             label_length1.append(len(text_feature))
 
         if self.speech_config['use_mel_layer']:
+            if self.streaming:
+                max_input=max_input//self.bucket*self.bucket+self.bucket
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
         else:
@@ -281,7 +287,10 @@ class AM_DataLoader():
             if self.speech_config['only_chinese']:
                 txt = self.only_chinese(txt)
             if self.speech_config['use_mel_layer']:
-                speech_feature = data / np.abs(data).max()
+                if not self.streaming:
+                    speech_feature = data / np.abs(data).max()
+                else:
+                    speech_feature = data
                 speech_feature = np.expand_dims(speech_feature, -1)
                 in_len = len(speech_feature) // (
                         self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
@@ -324,7 +333,10 @@ class AM_DataLoader():
                 if self.speech_config['only_chinese']:
                     txt = self.only_chinese(txt)
                 if self.speech_config['use_mel_layer']:
-                    speech_feature = data / np.abs(data).max()
+                    if not self.streaming:
+                        speech_feature = data / np.abs(data).max()
+                    else:
+                        speech_feature=data
                     speech_feature = np.expand_dims(speech_feature, -1)
                     in_len = len(speech_feature) // (
                             self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
@@ -350,6 +362,8 @@ class AM_DataLoader():
                 label_length1.append(len(text_feature))
 
         if self.speech_config['use_mel_layer']:
+            if self.streaming:
+                max_input = max_input // self.bucket * self.bucket + self.bucket
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
         else:

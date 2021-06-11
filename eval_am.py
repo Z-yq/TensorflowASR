@@ -17,7 +17,7 @@ class AM_Tester():
 
         if self.am.model_type!='MultiTask':
             self.dg = AM_DataLoader(config,training=False)
-            self.runner = am_tester.AMTester(self.config['running_config'], self.dg.text_featurizer)
+            self.runner = am_tester.AMTester(self.config['running_config'], self.dg.text_featurizer,streaming=config['speech_config']['streaming'])
 
         else:
             self.dg=MultiTask_DataLoader(config,training=False)
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     parse=argparse.ArgumentParser()
     # parse.add_argument('--data_config',type=str,required=True,help='the am data config path')
     parse.add_argument('--data_config',type=str,default='./configs/am_data.yml',help='the am data config path')
-    parse.add_argument('--model_config',type=str,default='./configs/MultiConformer.yml',help='the am model config path')
+    parse.add_argument('--model_config',type=str,default='./configs/streaming_conformerS.yml',help='the am model config path')
     # parse.add_argument('--model_config',type=str,required=True,help='the am model config path')
     args=parse.parse_args()
 

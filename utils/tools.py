@@ -90,6 +90,13 @@ def merge_two_last_dims(x):
     b, _, f, c = shape_list(x)
     return tf.reshape(x, shape=[b, -1, f * c])
 
+def merge_two_first_dims(x):
+    shapes = shape_list(x)
+    return tf.reshape(x, shape=[shapes[0]*shapes[1]]+shapes[2:])
+
+def split_two_first_dims(x,b,t):
+    _, f, c = shape_list(x)
+    return tf.reshape(x, shape=[b,t, f , c])
 
 def get_rnn(rnn_type):
     assert rnn_type in ["lstm", "gru", "rnn"]

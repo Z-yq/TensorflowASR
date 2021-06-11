@@ -25,16 +25,34 @@ class CTCTrainer(BaseTrainer):
         self.text_featurizer = text_featurizer
         self.is_mixed_precision = is_mixed_precision
         self.set_strategy(strategy)
+
     def set_train_metrics(self):
         self.train_metrics = {
-            "ctc_loss": tf.keras.metrics.Mean("train_ctc_loss", dtype=tf.float32)
+            "ctc_loss": tf.keras.metrics.Mean("train_ctc_loss", dtype=tf.float32),
+            "ctc_acc": tf.keras.metrics.Mean("train_ctc_acc", dtype=tf.float32),
         }
 
     def set_eval_metrics(self):
         self.eval_metrics = {
             "ctc_loss": tf.keras.metrics.Mean("eval_ctc_loss", dtype=tf.float32),
+            "ctc_acc": tf.keras.metrics.Mean("eval_ctc_acc", dtype=tf.float32),
         }
 
+    def ctc_acc(self, labels, y_pred):
+        T1 = tf.shape(y_pred)[1]
+        T2 = tf.shape(labels)[1]
+        T = tf.reduce_min([T1, T2])
+        y_pred = y_pred[:, :T]
+        labels = labels[:, :T]
+
+        mask = tf.cast(tf.not_equal(labels, self.text_featurizer.pad), 1.)
+        y_pred = tf.cast(y_pred, tf.float32)
+        labels = tf.cast(labels, tf.float32)
+
+        value = tf.cast(labels == y_pred, tf.float32)
+
+        accs = tf.reduce_sum(value, -1) / (tf.reduce_sum(mask, -1) + 1e-6)
+        return accs
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
         features, input_length, labels, label_length= batch
@@ -62,7 +80,9 @@ class CTCTrainer(BaseTrainer):
         else:
             gradients = tape.gradient(train_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-
+        ctc_pred = tf.keras.backend.ctc_decode(y_pred, input_length)[0][0]
+        ctc_acc = self.ctc_acc(labels, ctc_pred)
+        self.train_metrics['ctc_acc'].update_state(ctc_acc)
         self.train_metrics["ctc_loss"].update_state(train_loss)
 
     @tf.function(experimental_relax_shapes=True)
@@ -78,7 +98,10 @@ class CTCTrainer(BaseTrainer):
                                             )
 
         # Update metrics
+        ctc_pred = tf.keras.backend.ctc_decode(logits, input_length)[0][0]
+        ctc_acc = self.ctc_acc(labels, ctc_pred)
         self.eval_metrics["ctc_loss"].update_state(per_eval_loss)
+        self.eval_metrics['ctc_acc'].update_state(ctc_acc)
 
     def compile(self, model: tf.keras.Model,
                 optimizer: any,

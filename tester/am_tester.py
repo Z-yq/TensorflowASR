@@ -9,16 +9,27 @@ class AMTester(BaseTester):
     def __init__(self,
                  config,
                 text_feature,
+                 streaming=False,
                  ):
         super(AMTester, self).__init__(config)
         self.text_featurizer=text_feature
 
-
+        self.streaming=streaming
     def _eval_step(self, batch):
         features,  input_length, labels, label_length = batch
 
+        if self.streaming:
+            if 'CTC' in self.model_type:
+                logits=self.model(features)
+                probs = tf.nn.softmax(logits)
+                pred_decode = tf.keras.backend.ctc_decode(
+                    y_pred=probs, input_length=tf.squeeze(input_length, -1), greedy=True
+                )[0][0]
+            else:
+                pred_decode = self.model.eval_inference([features,labels])
 
-        pred_decode = self.model.recognize_pb(features, input_length)[0]
+        else:
+            pred_decode = self.model.recognize_pb(features, input_length)[0]
 
 
         if 'CTC' in self.model_type:

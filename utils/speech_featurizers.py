@@ -78,7 +78,7 @@ class SpeechFeaturizer:
         total_frames = seconds * self.sample_rate + 2 * (self.frame_length // 2)
         return int(1 + (total_frames - self.frame_length) // self.frame_step)
     def pad_signal(self,wavs,max_length):
-        wavs = tf.keras.preprocessing.sequence.pad_sequences(wavs, max_length, 'float32', 'post', 'post')
+        wavs = tf.keras.preprocessing.sequence.pad_sequences(wavs, int(max_length), 'float32', 'post', 'post')
         return wavs
     def compute_feature_dim(self) -> tuple:
         channel_dim = 1

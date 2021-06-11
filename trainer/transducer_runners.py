@@ -32,19 +32,36 @@ class TransducerTrainer(BaseTrainer):
             self.rnnt_loss=tf_rnnt_loss
         else:
             self.rnnt_loss=rnnt_loss
+
     def set_train_metrics(self):
         self.train_metrics = {
             "transducer_loss": tf.keras.metrics.Mean("train_transducer_loss", dtype=tf.float32),
             "ctc_loss": tf.keras.metrics.Mean("ctc_loss", dtype=tf.float32),
-
+            "ctc_acc": tf.keras.metrics.Mean("ctc_acc", dtype=tf.float32),
         }
 
     def set_eval_metrics(self):
         self.eval_metrics = {
             "transducer_loss": tf.keras.metrics.Mean("eval_transducer_loss", dtype=tf.float32),
             "ctc_loss": tf.keras.metrics.Mean("ctc_loss", dtype=tf.float32),
+            "ctc_acc": tf.keras.metrics.Mean("ctc_acc", dtype=tf.float32),
         }
 
+    def ctc_acc(self, labels, y_pred):
+        T1 = tf.shape(y_pred)[1]
+        T2 = tf.shape(labels)[1]
+        T = tf.reduce_min([T1, T2])
+        y_pred = y_pred[:, :T]
+        labels = labels[:, :T]
+
+        mask = tf.cast(tf.not_equal(labels, 0), 1.)
+        y_pred = tf.cast(y_pred, tf.float32)
+        labels = tf.cast(labels, tf.float32)
+
+        value = tf.cast(labels == y_pred, tf.float32)
+
+        accs = tf.reduce_sum(value, -1) / (tf.reduce_sum(mask, -1) + 1e-6)
+        return accs
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
         features,  input_length, labels, label_length = batch
@@ -59,6 +76,7 @@ class TransducerTrainer(BaseTrainer):
 
             logits,ctc_logits = self.model([features, pred_inp], training=True)
             # print(logits.shape,target.shape)
+            ctc_preds=tf.nn.softmax(ctc_logits,-1)
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
                                               , label_length=label_length, logit_length=input_length)
@@ -68,7 +86,11 @@ class TransducerTrainer(BaseTrainer):
                 logits=logits, labels=labels, label_length=label_length,
                 logit_length=(input_length // self.model.time_reduction_factor),
                 blank=self.text_featurizer.blank)
-            ctc_loss = tf.nn.ctc_loss(ctc_label, ctc_logits, label_length, input_length, False, blank_index=-1)
+            ctc_loss = tf.keras.backend.ctc_batch_cost(tf.cast(ctc_label, tf.int32),
+                                            tf.cast(ctc_preds, tf.float32),
+                                            tf.cast(input_length[:,tf.newaxis], tf.int32),
+                                            tf.cast(label_length[:,tf.newaxis], tf.int32),
+                                            )
             ctc_loss = tf.clip_by_value(ctc_loss, 0., 1000.)
             train_loss = tf.nn.compute_average_loss(per_train_loss+ctc_loss,
                                                     global_batch_size=self.global_batch_size)
@@ -82,7 +104,9 @@ class TransducerTrainer(BaseTrainer):
         else:
             gradients = tape.gradient(train_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-
+        ctc_pred = tf.keras.backend.ctc_decode(ctc_preds, input_length)[0][0]
+        ctc_acc = self.ctc_acc(ctc_label, ctc_pred)
+        self.train_metrics['ctc_acc'].update_state(ctc_acc)
         self.train_metrics["transducer_loss"].update_state(per_train_loss)
         self.train_metrics["ctc_loss"].update_state(ctc_loss)
 
@@ -96,6 +120,7 @@ class TransducerTrainer(BaseTrainer):
         ctc_label = tf.where(target == self.text_featurizer.blank, 0, target)
 
         logits ,ctc_logits= self.model([features, pred_inp], training=False)
+        ctc_preds=tf.nn.softmax(ctc_logits,-1)
         if USE_TF:
             eval_loss = self.rnnt_loss(logits=logits, labels=target
                                             , label_length=label_length,
@@ -108,6 +133,9 @@ class TransducerTrainer(BaseTrainer):
                 blank=self.text_featurizer.blank)
         ctc_loss = tf.nn.ctc_loss(ctc_label, ctc_logits, label_length, input_length, False, blank_index=-1)
         ctc_loss = tf.clip_by_value(ctc_loss, 0., 500.)
+        ctc_pred = tf.keras.backend.ctc_decode(ctc_preds, input_length)[0][0]
+        ctc_acc = self.ctc_acc(ctc_label, ctc_pred)
+        self.eval_metrics['ctc_acc'].update_state(ctc_acc)
         self.eval_metrics["transducer_loss"].update_state(eval_loss)
         self.eval_metrics["ctc_loss"].update_state(ctc_loss)
 
