@@ -9,12 +9,12 @@ class ASR():
         self.am = AM(am_config)
         self.am.load_model(False)
 
-        # self.lm = LM(lm_config,punc_config)
-        # self.lm.load_model(False)
-        # if punc_config is not None:
-        #     self.punc_recover=True
-        # else:
-        #     self.punc_recover=False
+        self.lm = LM(lm_config,punc_config)
+        self.lm.load_model(False)
+        if punc_config is not None:
+            self.punc_recover=True
+        else:
+            self.punc_recover=False
     def decode_am_result(self, result):
         return self.am.decode_result(result)
 
@@ -75,41 +75,38 @@ if __name__ == '__main__':
     # import tensorflow as tf
     # tf.config.threading.set_inter_op_parallelism_threads(1)
     # tf.config.threading.set_intra_op_parallelism_threads(1)
+
     am_config = UserConfig(r'./conformerCTC(M)/am_data.yml', r'./conformerCTC(M)/conformerM.yml')
-    lm_config = UserConfig(r'./configs/lm_data.yml', r'./configs/transformerO2OE.yml')
-    asr=ASR(am_config,lm_config)
-    asr.am_test(r'BAC009S0764W0121.wav')
-    # am_config = UserConfig(r'./conformerCTC(M)/am_data.yml', r'./conformerCTC(M)/conformerM.yml')
-    # lm_config = UserConfig(r'./transformer-logs/lm_data.yml', r'./transformer-logs/transformerO2OE.yml')
-    # punc_config = UserConfig(r'./punc_model/punc_settings.yml', r'./punc_model/punc_settings.yml')
-    # asr = ASR(am_config, lm_config,punc_config)
-    #
-    # # first inference will be slow,it is normal
-    # s=time.time()
-    # a, b = asr.stt(r'BAC009S0764W0121.wav')
-    # e=time.time()
-    # print(a)
-    # print(b)
-    # print('asr.stt first infenrence cost time:',e-s)
-    #
-    # # now it's OK
-    # s = time.time()
-    # a, b = asr.stt(r'BAC009S0764W0121.wav')
-    # e = time.time()
-    # print(a)
-    # print(b)
-    # print('asr.stt infenrence cost time:', e - s)
-    # s=time.time()
-    # print(asr.am_test(r'BAC009S0764W0121.wav'))
-    # e=time.time()
-    # print('asr.am_test cost time:',e-s)
-    # s=time.time()
-    # print(asr.lm_test('中介协会'))
-    # e=time.time()
-    # print('asr.lm_test cost time:',e-s)
-    # s = time.time()
-    # print(asr.punc_test('今日数学使用在不同的领域中包括科学工程医学经济学和金融学等'))
-    # e = time.time()
-    # print('asr.punc_test cost time:', e - s)
+    lm_config = UserConfig(r'./transformer-logs/lm_data.yml', r'./transformer-logs/transformerO2OE.yml')
+    punc_config = UserConfig(r'./punc_model/punc_settings.yml', r'./punc_model/punc_settings.yml')
+    asr = ASR(am_config, lm_config,punc_config)
+
+    # first inference will be slow,it is normal
+    s=time.time()
+    a, b = asr.stt(r'BAC009S0764W0121.wav')
+    e=time.time()
+    print(a)
+    print(b)
+    print('asr.stt first infenrence cost time:',e-s)
+
+    # now it's OK
+    s = time.time()
+    a, b = asr.stt(r'BAC009S0764W0121.wav')
+    e = time.time()
+    print(a)
+    print(b)
+    print('asr.stt infenrence cost time:', e - s)
+    s=time.time()
+    print(asr.am_test(r'BAC009S0764W0121.wav'))
+    e=time.time()
+    print('asr.am_test cost time:',e-s)
+    s=time.time()
+    print(asr.lm_test('中介协会'))
+    e=time.time()
+    print('asr.lm_test cost time:',e-s)
+    s = time.time()
+    print(asr.punc_test('今日数学使用在不同的领域中包括科学工程医学经济学和金融学等'))
+    e = time.time()
+    print('asr.punc_test cost time:', e - s)
 
 
