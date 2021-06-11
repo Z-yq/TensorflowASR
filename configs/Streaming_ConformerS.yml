@@ -1,0 +1,24 @@
+model_config:
+  name: StreamingConformerCTC #StreamingConformerTransducer/ConformerCTC
+  dmodel: 144
+  reduction_factor: 4
+  cell_nums: 4
+  num_blocks: 4
+  head_size: 36
+  num_heads: 4
+  kernel_size: 32
+  fc_factor: 0.5
+  dropout: 0.1
+  embed_dim: 256
+  embed_dropout: 0.0
+  num_lstms: 1
+  lstm_units: 320
+  joint_dim: 1024
+  enable_tflite_convertible: False # not support true
+
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
+
