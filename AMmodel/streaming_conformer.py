@@ -260,7 +260,6 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
                  **kwargs):
         """Init variables."""
         super().__init__(**kwargs)
-
         self.encoder=ConformerEncoder(
             dmodel=dmodel,
             num_blocks=num_blocks,
@@ -271,8 +270,8 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
             dropout=dropout,
             name=name,
         )
-        self.lstm_cell=tf.keras.layers.LSTMCell(dmodel,dropout=dropout)
-        self.gru_cell=tf.keras.layers.GRUCell(dmodel,dropout=dropout)
+        self.lstm=tf.keras.layers.LSTM(dmodel,dropout=dropout,return_state=True,return_sequences=True)
+        self.gru=tf.keras.layers.GRU(dmodel,dropout=dropout)
         self.dmodel=dmodel
     @property
     def state_size(self):
@@ -285,37 +284,32 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
     def get_initial_state(self, batch_size,inputs=None,dtype=None,):
         """Get initial states."""
 
-        initial_key = tf.zeros(shape=[batch_size, self.dmodel ], dtype=tf.float32)
+        initial_query = tf.zeros(shape=[batch_size, self.dmodel ], dtype=tf.float32)
 
         initial_state_lh,initial_state_lc = tf.zeros([batch_size,self.dmodel],dtype=tf.float32), tf.zeros([batch_size,self.dmodel],dtype=tf.float32)
 
-        return [initial_state_lh,initial_state_lc,initial_key]
+        return [initial_state_lh,initial_state_lc,initial_query]
 
 
     def call(self, inputs, states):
         """Call logic."""
-
         decoder_input = inputs
-
-        key = states[-1]
-
+        query = states[-1]
+        lh = states[0]
+        lc = states[1]
         B=tf.shape(decoder_input)[0]
+        query_value=tf.concat([query,lc],-1)
+        query_reshape=tf.reshape(query_value,[B,-1,self.dmodel])
+        encoder_out=self.encoder([decoder_input,query_reshape])
+        gh=self.gru(encoder_out)
+        gh=tf.expand_dims(gh,1)
+        outputs=self.lstm(gh,initial_state=[lh,lc])
+        out=outputs[0]
 
+        lh=outputs[1]
+        lc=outputs[2]
 
-
-        key_reshape=tf.reshape(key,[B,-1,self.dmodel])
-
-        encoder_out=self.encoder([decoder_input,key_reshape])
-        T=tf.shape(encoder_out)[1]
-        lh=states[0]
-        lc=states[1]
-        gh=tf.zeros_like(lh)
-        for i in range(T):
-            _,gh=self.gru_cell(encoder_out[:,i],(gh))
-
-        _,(lh,lc)=self.lstm_cell(gh,(lh,lc))
-
-        new_states = [lh,lc,lc]
+        new_states = [lh,lc,out[:,0]]
 
         return encoder_out, new_states
 
