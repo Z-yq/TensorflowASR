@@ -1,11 +1,12 @@
 import os
-import tensorflow as tf
-import numpy as np
-from utils.tools import shape_list, get_shape_invariants, split_two_first_dims
-from utils.text_featurizers import TextFeaturizer
-from AMmodel.layers.time_frequency import Melspectrogram, Spectrogram
-from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
 
+import numpy as np
+import tensorflow as tf
+
+from AMmodel.layers.LayerNormLstmCell import LayerNormLSTMCell
+from AMmodel.layers.time_frequency import Melspectrogram, Spectrogram
+from utils.text_featurizers import TextFeaturizer
+from utils.tools import get_shape_invariants
 
 
 class TransducerPrediction(tf.keras.Model):
@@ -123,28 +124,7 @@ class Transducer(tf.keras.Model):
             joint_dim=joint_dim,
             name=f"{name}_joint"
         )
-        self.speech_config = speech_config
-        self.mel_layer = None
-        if speech_config['use_mel_layer']:
-            if speech_config['mel_layer_type'] == 'Melspectrogram':
-                self.mel_layer = Melspectrogram(sr=speech_config['sample_rate'],
-                                                n_mels=speech_config['num_feature_bins'],
-                                                n_hop=int(
-                                                    speech_config['stride_ms'] * speech_config['sample_rate'] // 1000),
-                                                n_dft=1024,
-                                                trainable_fb=speech_config['trainable_kernel']
-                                                )
-            else:
-                self.mel_layer = Spectrogram(
-                    n_hop=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000),
-                    n_dft=1024,
-                    trainable_kernel=speech_config['trainable_kernel']
-                )
-            self.mel_layer.trainable = speech_config['trainable_kernel']
-        self.wav_info = speech_config['add_wav_info']
-        if self.wav_info:
-            assert speech_config['use_mel_layer'] == True, 'shold set use_mel_layer is True'
-        self.ctc_classes = tf.keras.layers.Dense(vocabulary_size, name='ctc_classes')
+
         self.speech_config = speech_config
         self.mel_layer = None
         if speech_config['use_mel_layer']:
@@ -173,7 +153,8 @@ class Transducer(tf.keras.Model):
         self.dmodel = encoder.dmodel
         self.cell_nums = encoder.cell_nums
         self.chuck_size = int(self.speech_config['sample_rate'] * self.speech_config['streaming_bucket'])
-        self.kept_decoded=None
+        self.kept_decoded = None
+
     def _build(self, shape):  # Call on real data for building model
 
         batch = shape[0]
@@ -181,7 +162,7 @@ class Transducer(tf.keras.Model):
 
         targets = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]] * batch)
 
-        self([inputs,targets], training=True)
+        self([inputs, targets], training=True)
 
     def save_seperate(self, path_to_dir: str):
         self.encoder.save(os.path.join(path_to_dir, "encoder"))
@@ -195,13 +176,15 @@ class Transducer(tf.keras.Model):
         super(Transducer, self).summary(line_length=line_length, **kwargs)
 
         # @tf.function(experimental_relax_shapes=True)
-    def initial_states(self,inputs):
+
+    def initial_states(self, inputs):
         enc_states = self.encoder.get_init_states(inputs)
         decoder_states = self.predict_net.get_initial_state(inputs)
 
-        return [enc_states,decoder_states],  tf.constant([self.text_featurizer.start])
+        return [enc_states, decoder_states], tf.constant([self.text_featurizer.start])
+
     def call(self, inputs, training=False):
-        features,predicted = inputs
+        features, predicted = inputs
         B = tf.shape(features)[0]
         features = tf.reshape(features, [-1, self.chuck_size, 1])
 
@@ -230,9 +213,9 @@ class Transducer(tf.keras.Model):
         outputs = self.joint_net([enc, pred], training=training)
         ctc_outputs = self.ctc_classes(enc, training=training)
 
-
         return outputs, ctc_outputs
-    def eval_inference(self,inputs,training=False):
+
+    def eval_inference(self, inputs, training=False):
         features, predicted = inputs
         B = tf.shape(features)[0]
         features = tf.reshape(features, [-1, self.chuck_size, 1])
@@ -295,15 +278,15 @@ class Transducer(tf.keras.Model):
 
     def return_pb_function(self, shape):
         @tf.function(experimental_relax_shapes=True
-            # input_signature=[
-        #     tf.TensorSpec(shape, dtype=tf.float32),  # features
-        #     tf.TensorSpec([None, 1], dtype=tf.int32),  # features
-        # ]
-        )
-        def recognize_pb(features, decoded,states):
-            features=tf.cast(features,tf.float32)
-            yseq,states = self.perform_greedy(features,decoded,states)
-            return yseq,states
+                     # input_signature=[
+                     #     tf.TensorSpec(shape, dtype=tf.float32),  # features
+                     #     tf.TensorSpec([None, 1], dtype=tf.int32),  # features
+                     # ]
+                     )
+        def recognize_pb(features, decoded, states):
+            features = tf.cast(features, tf.float32)
+            yseq, states = self.perform_greedy(features, decoded, states)
+            return yseq, states
 
         self.recognize_pb = recognize_pb
 
@@ -322,17 +305,12 @@ class Transducer(tf.keras.Model):
             else:
                 features = self.mel_layer(features)
 
-
-
-
-
-
         if self.wav_info:
             enc, enc_states = self.encoder.inference([features, wav], states[0])  # [1, T, E]
         else:
-            enc, enc_states = self.encoder.inference(features,states[0])  # [1, T, E]
+            enc, enc_states = self.encoder.inference(features, states[0])  # [1, T, E]
 
-        h =states[1]
+        h = states[1]
 
         enc = tf.squeeze(enc, axis=0)  # [T, E]
 
@@ -385,8 +363,7 @@ class Transducer(tf.keras.Model):
             )
         )
 
-
-        return decoded,[enc_states,h]
+        return decoded, [enc_states, h]
 
     def recognize(self, features):
         decoded = self.perform_greedy(features)
