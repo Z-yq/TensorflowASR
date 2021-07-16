@@ -18,7 +18,7 @@ class AM_DataLoader():
         self.text_config = config_dict['decoder_config']
         self.augment_config = config_dict['augments_config']
         self.streaming=self.speech_config['streaming']
-        self.bucket=self.speech_config['sample_rate']*self.speech_config['streaming_bucket']
+        self.chunk=self.speech_config['sample_rate']*self.speech_config['streaming_bucket']
         self.batch = config_dict['learning_config']['running_config']['batch_size']
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.text_featurizer = TextFeaturizer(self.text_config)
@@ -161,12 +161,22 @@ class AM_DataLoader():
             if self.speech_config['use_mel_layer']:
                 if not self.streaming:
                     speech_feature = data / np.abs(data).max()
+                    speech_feature = np.expand_dims(speech_feature, -1)
+                    in_len = len(speech_feature) // (
+                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                            self.speech_config['stride_ms'])
                 else:
                     speech_feature = data
-                speech_feature = np.expand_dims(speech_feature, -1)
-                in_len = len(speech_feature) // (
-                        self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
-                        self.speech_config['stride_ms'])
+                    speech_feature = np.expand_dims(speech_feature, -1)
+                    reduce=self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *self.speech_config['stride_ms']
+                    in_len = len(speech_feature) //self.chunk
+                    if len(speech_feature) %self.chunk!=0:
+                        in_len+=1
+                    chunk_times=self.chunk//reduce
+                    if self.chunk%reduce!=0:
+                        chunk_times+=1
+                    in_len*=chunk_times
+                
             else:
                 speech_feature = self.speech_featurizer.extract(data)
                 in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
@@ -190,7 +200,7 @@ class AM_DataLoader():
 
         if self.speech_config['use_mel_layer']:
             if self.streaming:
-                max_input=max_input//self.bucket*self.bucket+self.bucket
+                max_input=max_input//self.chunk*self.chunk+self.chunk
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
         else:
@@ -289,12 +299,22 @@ class AM_DataLoader():
             if self.speech_config['use_mel_layer']:
                 if not self.streaming:
                     speech_feature = data / np.abs(data).max()
+                    speech_feature = np.expand_dims(speech_feature, -1)
+                    in_len = len(speech_feature) // (
+                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                            self.speech_config['stride_ms'])
                 else:
                     speech_feature = data
-                speech_feature = np.expand_dims(speech_feature, -1)
-                in_len = len(speech_feature) // (
-                        self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
-                        self.speech_config['stride_ms'])
+                    speech_feature = np.expand_dims(speech_feature, -1)
+                    reduce = self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) * \
+                             self.speech_config['stride_ms']
+                    in_len = len(speech_feature) // self.chunk
+                    if len(speech_feature) % self.chunk != 0:
+                        in_len += 1
+                    chunk_times = self.chunk // reduce
+                    if self.chunk % reduce != 0:
+                        chunk_times += 1
+                    in_len *= chunk_times
             else:
                 speech_feature = self.speech_featurizer.extract(data)
                 in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
@@ -335,12 +355,22 @@ class AM_DataLoader():
                 if self.speech_config['use_mel_layer']:
                     if not self.streaming:
                         speech_feature = data / np.abs(data).max()
+                        speech_feature = np.expand_dims(speech_feature, -1)
+                        in_len = len(speech_feature) // (
+                                self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
+                                self.speech_config['stride_ms'])
                     else:
-                        speech_feature=data
-                    speech_feature = np.expand_dims(speech_feature, -1)
-                    in_len = len(speech_feature) // (
-                            self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) *
-                            self.speech_config['stride_ms'])
+                        speech_feature = data
+                        speech_feature = np.expand_dims(speech_feature, -1)
+                        reduce = self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) * \
+                                 self.speech_config['stride_ms']
+                        in_len = len(speech_feature) // self.chunk
+                        if len(speech_feature) % self.chunk != 0:
+                            in_len += 1
+                        chunk_times = self.chunk // reduce
+                        if self.chunk % reduce != 0:
+                            chunk_times += 1
+                        in_len *= chunk_times
                 else:
                     speech_feature = self.speech_featurizer.extract(data)
                     in_len = int(speech_feature.shape[0] // self.speech_config['reduction_factor'])
@@ -363,7 +393,15 @@ class AM_DataLoader():
 
         if self.speech_config['use_mel_layer']:
             if self.streaming:
-                max_input = max_input // self.bucket * self.bucket + self.bucket
+                reduce = self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) * \
+                         self.speech_config['stride_ms']
+                max_input = max_input // self.chunk * self.chunk + self.chunk
+                max_in_len=max_input//self.chunk
+                chunk_times = self.chunk // reduce
+                if self.chunk % reduce != 0:
+                    chunk_times += 1
+                max_in_len*=chunk_times
+                input_length=np.clip(input_length,0,max_in_len)
             speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
         else:

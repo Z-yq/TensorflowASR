@@ -1,12 +1,12 @@
 model_config:
   name: StreamingConformerCTC #StreamingConformerTransducer/ConformerCTC
-  dmodel: 144
+  dmodel: 512
   reduction_factor: 4
-  cell_nums: 4
-  num_blocks: 4
-  head_size: 36
-  num_heads: 4
-  kernel_size: 32
+  cell_nums: 1
+  num_blocks: 1
+  head_size: 32
+  num_heads: 16
+  kernel_size: 5
   fc_factor: 0.5
   dropout: 0.1
   embed_dim: 256

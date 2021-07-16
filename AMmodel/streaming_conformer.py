@@ -1,12 +1,11 @@
-
 import tensorflow as tf
 
-import collections
-from AMmodel.wav_model import WavePickModel
-from AMmodel.stream_transducer_wrap import Transducer
-from AMmodel.stream_ctc_wrap import CtcModel
-from utils.tools import merge_two_last_dims,split_two_first_dims,merge_two_first_dims
 from AMmodel.layers.multihead_attention import MultiHeadAttention
+from AMmodel.stream_ctc_wrap import CtcModel
+from AMmodel.stream_transducer_wrap import Transducer
+from AMmodel.wav_model import WavePickModel
+from utils.tools import merge_two_last_dims, split_two_first_dims, merge_two_first_dims
+
 
 class GLU(tf.keras.layers.Layer):
     def __init__(self,
@@ -25,6 +24,7 @@ class GLU(tf.keras.layers.Layer):
         conf = super(GLU, self).get_config()
         conf.update({"axis": self.axis})
         return conf
+
 
 class ConvSubsampling(tf.keras.layers.Layer):
     def __init__(self,
@@ -128,12 +128,12 @@ class MHSAModule(tf.keras.layers.Layer):
         self.res_add = tf.keras.layers.Add()
 
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs,key, training=False, **kwargs):
+    def call(self, inputs, key, training=False, **kwargs):
         # outputs = self.pc(inputs)
         outputs = self.ln(inputs, training=training)
-        outputs = self.mha2([outputs,outputs,outputs], training=training)
-   
-        outputs = self.mha([outputs,key,key], training=training)
+        outputs = self.mha2([outputs, outputs, outputs], training=training)
+
+        outputs = self.mha([outputs, key, key], training=training)
         # print(outputs.shape)
         outputs = self.do(outputs, training=training)
         outputs = self.res_add([inputs, outputs])
@@ -168,7 +168,7 @@ class ConvModule(tf.keras.layers.Layer):
             filters=2 * input_dim, kernel_size=kernel_size, strides=1,
             padding="same", depth_multiplier=1, name="dw_conv"
         )
-        self.bn =tf.keras.layers.BatchNormalization()
+        self.bn = tf.keras.layers.LayerNormalization()
         self.swish = tf.keras.layers.Activation(
             tf.keras.activations.swish, name="swish_activation")
 
@@ -218,7 +218,7 @@ class ConformerBlock(tf.keras.layers.Layer):
         self.ffm1 = FFModule(input_dim=input_dim,
                              dropout=dropout, fc_factor=fc_factor,
                              name="ff_module_1")
-        self.mhsam = MHSAModule(input_dim,head_size=head_size, num_heads=num_heads,
+        self.mhsam = MHSAModule(input_dim, head_size=head_size, num_heads=num_heads,
                                 dropout=dropout)
         self.convm = ConvModule(input_dim=input_dim, kernel_size=kernel_size,
                                 dropout=dropout)
@@ -228,9 +228,9 @@ class ConformerBlock(tf.keras.layers.Layer):
         self.ln = tf.keras.layers.LayerNormalization()
 
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs, key,training=False, **kwargs):
+    def call(self, inputs, key, training=False, **kwargs):
         outputs = self.ffm1(inputs, training=training)
-        outputs = self.mhsam(outputs,key=key, training=training)
+        outputs = self.mhsam(outputs, key=key, training=training)
         outputs = self.convm(outputs, training=training)
         outputs = self.ffm2(outputs, training=training)
         outputs = self.ln(outputs, training=training)
@@ -260,7 +260,7 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
                  **kwargs):
         """Init variables."""
         super().__init__(**kwargs)
-        self.encoder=ConformerEncoder(
+        self.encoder = ConformerEncoder(
             dmodel=dmodel,
             num_blocks=num_blocks,
             head_size=head_size,
@@ -270,26 +270,28 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
             dropout=dropout,
             name=name,
         )
-        self.lstm=tf.keras.layers.LSTM(dmodel,dropout=dropout,return_state=True,return_sequences=True)
-        self.gru=tf.keras.layers.GRU(dmodel,dropout=dropout)
-        self.dmodel=dmodel
+        self.lstm = tf.keras.layers.LSTM(dmodel, dropout=dropout, return_state=True, return_sequences=True)
+        self.gru = tf.keras.layers.GRU(dmodel, dropout=dropout)
+        self.dmodel = dmodel
+
     @property
     def state_size(self):
         """Return hidden state size."""
-        return [tf.TensorShape([self.dmodel]),tf.TensorShape([self.dmodel]),tf.TensorShape([self.dmodel])]
+        return [tf.TensorShape([self.dmodel]), tf.TensorShape([self.dmodel]), tf.TensorShape([self.dmodel])]
+
     @property
     def output_size(self):
-        return tf.TensorShape([None,self.dmodel])
+        return tf.TensorShape([None, self.dmodel])
 
-    def get_initial_state(self, batch_size,inputs=None,dtype=None,):
+    def get_initial_state(self, batch_size, inputs=None, dtype=None, ):
         """Get initial states."""
 
-        initial_query = tf.zeros(shape=[batch_size, self.dmodel ], dtype=tf.float32)
+        initial_query = tf.zeros(shape=[batch_size, self.dmodel], dtype=tf.float32)
 
-        initial_state_lh,initial_state_lc = tf.zeros([batch_size,self.dmodel],dtype=tf.float32), tf.zeros([batch_size,self.dmodel],dtype=tf.float32)
+        initial_state_lh, initial_state_lc = tf.zeros([batch_size, self.dmodel], dtype=tf.float32), tf.zeros(
+            [batch_size, self.dmodel], dtype=tf.float32)
 
-        return [initial_state_lh,initial_state_lc,initial_query]
-
+        return [initial_state_lh, initial_state_lc, initial_query]
 
     def call(self, inputs, states):
         """Call logic."""
@@ -297,21 +299,22 @@ class StreamingEncoderCell(tf.keras.layers.AbstractRNNCell):
         query = states[-1]
         lh = states[0]
         lc = states[1]
-        B=tf.shape(decoder_input)[0]
-        query_value=tf.concat([query,lc],-1)
-        query_reshape=tf.reshape(query_value,[B,-1,self.dmodel])
-        encoder_out=self.encoder([decoder_input,query_reshape])
-        gh=self.gru(encoder_out)
-        gh=tf.expand_dims(gh,1)
-        outputs=self.lstm(gh,initial_state=[lh,lc])
-        out=outputs[0]
+        B = tf.shape(decoder_input)[0]
+        query_value = tf.concat([query, lc], -1)
+        query_reshape = tf.reshape(query_value, [B, -1, self.dmodel])
+        encoder_out = self.encoder([decoder_input, query_reshape])
+        gh = self.gru(encoder_out)
+        gh = tf.expand_dims(gh, 1)
+        outputs = self.lstm(gh, initial_state=[lh, lc])
+        out = outputs[0]
 
-        lh=outputs[1]
-        lc=outputs[2]
+        lh = outputs[1]
+        lc = outputs[2]
 
-        new_states = [lh,lc,out[:,0]]
+        new_states = [lh, lc, out[:, 0]]
 
         return encoder_out, new_states
+
 
 class ConformerEncoder(tf.keras.layers.Layer):
     def __init__(self,
@@ -324,8 +327,8 @@ class ConformerEncoder(tf.keras.layers.Layer):
                  dropout=0.0,
                  name="conformer_encoder",
                  **kwargs):
-        super(ConformerEncoder, self).__init__(name=name+'blocks', **kwargs)
-        self.conformer_blocks=[]
+        super(ConformerEncoder, self).__init__(name=name + 'blocks', **kwargs)
+        self.conformer_blocks = []
         for i in range(num_blocks):
             conformer_block = ConformerBlock(
                 input_dim=dmodel,
@@ -341,10 +344,10 @@ class ConformerEncoder(tf.keras.layers.Layer):
     # @tf.function()
     def call(self, inputs, training=False, **kwargs):
         # input with shape [B, T, V1, V2]
-        outputs,key=inputs
+        outputs, key = inputs
 
         for cblock in self.conformer_blocks:
-            outputs = cblock(outputs,key, training=training)
+            outputs = cblock(outputs, key, training=training)
 
         return outputs
 
@@ -354,8 +357,9 @@ class ConformerEncoder(tf.keras.layers.Layer):
         for cblock in self.conformer_blocks:
             conf.update(cblock.get_config())
         return conf
-class StreamingConformerEncoder(tf.keras.Model):
 
+
+class StreamingConformerEncoder(tf.keras.Model):
 
     def __init__(self,
                  dmodel=144,
@@ -380,71 +384,73 @@ class StreamingConformerEncoder(tf.keras.Model):
             dropout=dropout
         )
         self.dropout = dropout
-        self.cell_nums=cell_nums
+        self.cell_nums = cell_nums
         self.add_wav_info = add_wav_info
         if self.add_wav_info:
             self.wav_layer = WavePickModel(dmodel, hop_size)
-        cells=[]
+        cells = []
         for i in range(cell_nums):
             cells.append(StreamingEncoderCell(dmodel=dmodel,
 
-            num_blocks=num_blocks,
-            head_size=head_size,
-            num_heads=num_heads,
-            kernel_size=kernel_size,
-            fc_factor=fc_factor,
-            dropout=dropout,
-            name=name+'cell_%s'%i,))
+                                              num_blocks=num_blocks,
+                                              head_size=head_size,
+                                              num_heads=num_heads,
+                                              kernel_size=kernel_size,
+                                              fc_factor=fc_factor,
+                                              dropout=dropout,
+                                              name=name + 'cell_%s' % i, ))
 
         self.custom_layer = tf.keras.layers.RNN(cells, return_sequences=True, return_state=True,
-                                                 name='customer_rnn')
+                                                name='customer_rnn')
 
-    @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs,states=None, training=None, mask=None):
+    # @tf.function(experimental_relax_shapes=True)
+    def call(self, inputs, states=None, training=None, mask=None):
 
         if self.add_wav_info:
             mel_inputs, wav_inputs = inputs
-            B=tf.shape(mel_inputs)[0]
-            T=tf.shape(mel_inputs)[1]
-            mel_inputs=merge_two_first_dims(mel_inputs)
-            wav_inputs=merge_two_first_dims(wav_inputs)
-            mel_outputs = self.conv_subsampling(mel_inputs, training=training)
-            wav_outputs = self.wav_layer(wav_inputs, training=training)
-            outputs = mel_outputs+wav_outputs
-            outputs=split_two_first_dims(outputs,B,T)
-        else:
-            mel_inputs=inputs
             B = tf.shape(mel_inputs)[0]
             T = tf.shape(mel_inputs)[1]
-            mel_inputs=merge_two_first_dims(mel_inputs)
+            mel_inputs = merge_two_first_dims(mel_inputs)
+            wav_inputs = merge_two_first_dims(wav_inputs)
+            mel_outputs = self.conv_subsampling(mel_inputs, training=training)
+            wav_outputs = self.wav_layer(wav_inputs, training=training)
+            outputs = mel_outputs + wav_outputs
+            outputs = split_two_first_dims(outputs, B, T)
+        else:
+            mel_inputs = inputs
+            B = tf.shape(mel_inputs)[0]
+            T = tf.shape(mel_inputs)[1]
+            mel_inputs = merge_two_first_dims(mel_inputs)
             outputs = self.conv_subsampling(mel_inputs, training=training)
             outputs = split_two_first_dims(outputs, B, T)
 
         if states is None:
+            states = self.custom_layer.get_initial_state(outputs)
 
-            states=self.custom_layer.get_initial_state(outputs)
+        outputs = self.custom_layer(outputs, initial_state=states)
+        return outputs[0], outputs[1:]
 
-        outputs=self.custom_layer(outputs,initial_state=states)
-        return outputs[0],outputs[1:]
-    def get_init_states(self,inputs):
+    def get_init_states(self, inputs):
         return self.custom_layer.get_initial_state(inputs)
-    def inference(self,inputs,states):
+
+    def inference(self, inputs, states):
         if self.add_wav_info:
             mel_inputs, wav_inputs = inputs
 
             mel_outputs = self.conv_subsampling(mel_inputs, training=False)
             wav_outputs = self.wav_layer(wav_inputs, training=False)
-            outputs = mel_outputs+wav_outputs
+            outputs = mel_outputs + wav_outputs
 
         else:
-            mel_inputs=inputs
+            mel_inputs = inputs
 
             outputs = self.conv_subsampling(mel_inputs, training=False)
-        outputs=tf.expand_dims(outputs,1)
-        outputs=self.custom_layer(outputs,initial_state=states)
-        new_states=outputs[1:]
-        result=tf.squeeze(outputs[0],1)
-        return result,new_states
+        outputs = tf.expand_dims(outputs, 1)
+        outputs = self.custom_layer(outputs, initial_state=states)
+        new_states = outputs[1:]
+        result = tf.squeeze(outputs[0], 1)
+        return result, new_states
+
     def get_config(self):
         conf = super(StreamingConformerEncoder, self).get_config()
         conf.update(self.conv_subsampling.get_config())
@@ -459,7 +465,7 @@ class StreamingConformerTransducer(Transducer):
                  reduction_factor: int,
                  vocabulary_size: int,
                  num_blocks: int = 8,
-                 cell_nums: int =4,
+                 cell_nums: int = 4,
                  head_size: int = 512,
                  num_heads: int = 4,
                  kernel_size: int = 32,
@@ -485,7 +491,7 @@ class StreamingConformerTransducer(Transducer):
                 fc_factor=fc_factor,
                 dropout=dropout,
                 add_wav_info=speech_config['add_wav_info'],
-                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000)*reduction_factor,
+                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000) * reduction_factor,
             ),
             vocabulary_size=vocabulary_size,
             embed_dim=embed_dim,
@@ -493,16 +499,17 @@ class StreamingConformerTransducer(Transducer):
             num_lstms=num_lstms,
             lstm_units=lstm_units,
             joint_dim=joint_dim,
-            name=name, speech_config= speech_config, **kwargs
+            name=name, speech_config=speech_config, **kwargs
         )
         self.time_reduction_factor = reduction_factor
+
 
 class StreamingConformerCTC(CtcModel):
     def __init__(self,
                  dmodel: int,
                  reduction_factor: int,
                  vocabulary_size: int,
-                 cell_nums:int =4,
+                 cell_nums: int = 4,
                  num_blocks: int = 16,
                  head_size: int = 36,
                  num_heads: int = 4,
@@ -525,24 +532,26 @@ class StreamingConformerCTC(CtcModel):
 
                 dropout=dropout,
                 add_wav_info=speech_config['add_wav_info'],
-                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate']//1000)*reduction_factor,
-            ),num_classes=vocabulary_size,name=name,speech_config=speech_config)
+                hop_size=int(speech_config['stride_ms'] * speech_config['sample_rate'] // 1000) * reduction_factor,
+            ), num_classes=vocabulary_size, name=name, speech_config=speech_config)
         self.time_reduction_factor = reduction_factor
+
 
 if __name__ == '__main__':
 
     import time
-    model=StreamingConformerEncoder()
-    x=tf.random.uniform([3,4,50,80,1])
-    x2=tf.random.uniform([3,4,4000,1])
+
+    model = StreamingConformerEncoder()
+    x = tf.random.uniform([3, 4, 50, 80, 1])
+    x2 = tf.random.uniform([3, 4, 4000, 1])
     # model.setup_init_state(3)
-    out1=model(x,training=True)
-    states=model.custom_layer.get_initial_state(x)
+    out1 = model(x, training=True)
+    states = model.custom_layer.get_initial_state(x)
     for i in range(x.shape[1]):
-        s=time.time()
-        out1,states=model.inference(x[:,i],states)
-        e=time.time()
-        print('cost time',e-s,out1.shape)
+        s = time.time()
+        out1, states = model.inference(x[:, i], states)
+        e = time.time()
+        print('cost time', e - s, out1.shape)
     # out2=model(x,training=True)
     model.summary()
     # print(out2[1])
