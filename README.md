@@ -108,7 +108,7 @@ Punc：PuncModel
 
 
 ## Community
-欢迎加入，讨论和分享问题。
+欢迎加入，讨论和分享问题。 群1已满。
 
 <img width="300" height="300" src="./community.jpg">
 
