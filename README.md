@@ -17,10 +17,16 @@
 <p align="center">
 欢迎使用并反馈bug
 </p>
+
 [English](https://github.com/Z-yq/TensorflowASR/blob/master/README_en.md)|中文版
 
 
 
+## 实现功能
+
+- VAD+降噪
+- 在线流式识别/离线识别
+- 标点恢复
 
 ## 其它项目
 
