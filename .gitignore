@@ -1,17 +1,14 @@
 
-*.xml
 *.pyc
 *.iml
 *.v2
 *.txt
 *.h5
 *.npy
-*.data-00000-of-00001
-*.index
-*.meta
 *.json
 *.npz
 ./punc_model
 ./conformerCTC(M)
 ./transformer-logs
 ./streaming-logs
+./.idea
