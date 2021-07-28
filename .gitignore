@@ -12,3 +12,5 @@
 ./transformer-logs
 ./streaming-logs
 ./.idea
+.idea/misc.xml
+*.xml
