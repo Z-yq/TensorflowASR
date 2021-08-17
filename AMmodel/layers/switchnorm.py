@@ -217,7 +217,7 @@ class SwitchNormalization(Layer):
                              K.moving_average_update(self.moving_variance,
                                                      variance_batch_reshaped,
                                                      self.momentum)],
-                            inputs)
+                            )
 
             return normalize_func(mean_batch, variance_batch)
 

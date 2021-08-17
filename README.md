@@ -62,7 +62,7 @@ C++的demo已经提供。
 
 现在支持流式的Conformer结构啦，同epoch训练下，和全局conformer的CER仅差0.8%。
 
-![streaming_conformer](./streaming_conformer.svg)
+![streaming_conformer](./streaming_model.svg)
 
 ## Pretrained Model
 
@@ -123,7 +123,7 @@ Punc：PuncModel
 
 最新更新
 
-- :1st_place_medal: [2021.06.11]增加了Streaming Conformer结构目前，已经验证推举配置的训练结果只和全局的conformer相差1%左右。
+- :1st_place_medal: [2021.08.19]更改了Streaming Conformer结构，舍弃了之前的LSTM结构以提升训练速度，目前已经验证推举配置的训练结果只和全局的conformer相差1%左右。
 
 - 增加了标点恢复的模型和预训练模型
 - 优化了一些逻辑

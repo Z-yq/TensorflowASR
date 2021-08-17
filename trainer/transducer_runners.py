@@ -8,7 +8,7 @@ from losses.rnnt_losses import USE_TF,tf_rnnt_loss,rnnt_loss
 from AMmodel.transducer_wrap import Transducer
 from utils.text_featurizers import TextFeaturizer
 import logging
-import random
+
 class TransducerTrainer(BaseTrainer):
     def __init__(self,
                  speech_featurizer,
@@ -80,7 +80,7 @@ class TransducerTrainer(BaseTrainer):
             if USE_TF:
                 per_train_loss=self.rnnt_loss(logits=logits, labels=target
                                               , label_length=label_length, logit_length=input_length)
-                per_train_loss = tf.clip_by_value(per_train_loss, 0., 500.)
+                # per_train_loss = tf.clip_by_value(per_train_loss, 0., 500.)
             else:
                 per_train_loss = self.rnnt_loss(
                 logits=logits, labels=labels, label_length=label_length,
@@ -91,7 +91,7 @@ class TransducerTrainer(BaseTrainer):
                                             tf.cast(input_length[:,tf.newaxis], tf.int32),
                                             tf.cast(label_length[:,tf.newaxis], tf.int32),
                                             )
-            ctc_loss = tf.clip_by_value(ctc_loss, 0., 1000.)
+            # ctc_loss = tf.clip_by_value(ctc_loss, 0., 1000.)
             train_loss = tf.nn.compute_average_loss(per_train_loss+ctc_loss,
                                                     global_batch_size=self.global_batch_size)
 
@@ -147,7 +147,7 @@ class TransducerTrainer(BaseTrainer):
         with self.strategy.scope():
             self.model = model
             if self.model.mel_layer is not None:
-                self.model._build([1, 16000, 1])
+                self.model._build([1, 16000 if self.config['streaming'] is False else self.model.chunk_size*3, 1])
             else:
                 self.model._build([1, 80, f, c])
             self.model.summary(line_length=100)

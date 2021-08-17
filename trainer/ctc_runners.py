@@ -86,6 +86,44 @@ class CTCTrainer(BaseTrainer):
         self.train_metrics["ctc_loss"].update_state(train_loss)
 
     @tf.function(experimental_relax_shapes=True)
+    def streaming_train_step(self, batch):
+        features, input_length, labels, label_length = batch
+
+        with tf.GradientTape() as tape:
+
+            y_pred,y_pred2 = self.model(features, training=True)
+            y_pred = tf.nn.softmax(y_pred, -1)
+            y_pred2 = tf.nn.softmax(y_pred2, -1)
+
+
+            train_loss = tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
+                                                         tf.cast(y_pred, tf.float32),
+                                                         tf.cast(input_length[:, tf.newaxis], tf.int32),
+                                                         tf.cast(label_length[:, tf.newaxis], tf.int32),
+                                                         )+tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
+                                                         tf.cast(y_pred2, tf.float32),
+                                                         tf.cast(input_length[:, tf.newaxis], tf.int32),
+                                                         tf.cast(label_length[:, tf.newaxis], tf.int32),
+                                                         )
+            train_loss = tf.nn.compute_average_loss(train_loss,
+                                                    global_batch_size=self.global_batch_size)
+
+            if self.is_mixed_precision:
+                scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)
+
+        if self.is_mixed_precision:
+            scaled_gradients = tape.gradient(scaled_train_loss, self.model.trainable_variables)
+            gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+        else:
+            gradients = tape.gradient(train_loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        ctc_pred = tf.keras.backend.ctc_decode(y_pred2, input_length)[0][0]
+        ctc_acc = self.ctc_acc(labels, ctc_pred)
+        self.train_metrics['ctc_acc'].update_state(ctc_acc)
+        self.train_metrics["ctc_loss"].update_state(train_loss)
+
+
+    @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
         features,  input_length, labels, label_length = batch
 
@@ -103,6 +141,24 @@ class CTCTrainer(BaseTrainer):
         self.eval_metrics["ctc_loss"].update_state(per_eval_loss)
         self.eval_metrics['ctc_acc'].update_state(ctc_acc)
 
+    @tf.function(experimental_relax_shapes=True)
+    def streaming_eval_step(self, batch):
+        features, input_length, labels, label_length = batch
+
+        _,logits = self.model(features, training=False)
+        logits = tf.nn.softmax(logits, -1)
+        per_eval_loss = tf.keras.backend.ctc_batch_cost(tf.cast(labels, tf.int32),
+                                                        tf.cast(logits, tf.float32),
+                                                        tf.cast(input_length[:, tf.newaxis], tf.int32),
+                                                        tf.cast(label_length[:, tf.newaxis], tf.int32),
+                                                        )
+
+        # Update metrics
+        ctc_pred = tf.keras.backend.ctc_decode(logits, input_length)[0][0]
+        ctc_acc = self.ctc_acc(labels, ctc_pred)
+        self.eval_metrics["ctc_loss"].update_state(per_eval_loss)
+        self.eval_metrics['ctc_acc'].update_state(ctc_acc)
+
     def compile(self, model: tf.keras.Model,
                 optimizer: any,
                 max_to_keep: int = 10):
@@ -110,7 +166,7 @@ class CTCTrainer(BaseTrainer):
         with self.strategy.scope():
             self.model = model
             if self.model.mel_layer is not None:
-                self.model._build([1, 16000, 1])
+                self.model._build([1, 16000 if self.config['streaming'] is False else self.model.chunk_size *3 , 1])
             else:
                 self.model._build([1, 80, f, c])
             try:
@@ -133,5 +189,48 @@ class CTCTrainer(BaseTrainer):
 
         self._check_eval_interval()
 
+    def _train_batches(self):
+        """Train model one epoch."""
 
+        for batch in self.train_datasets:
+            try:
+                if self.config['streaming']:
+                    self.strategy.run(self.streaming_train_step, args=(batch,))
+                else:
+                    self.strategy.run(self._train_step, args=(batch,))
 
+                self.steps += 1
+                self.train_progbar.update(1)
+                self._print_train_metrics(self.train_progbar)
+                self._check_log_interval()
+
+                if self._check_save_interval():
+                    break
+
+            except tf.errors.OutOfRangeError:
+                continue
+
+    def _eval_batches(self):
+        """One epoch evaluation."""
+
+        for metric in self.eval_metrics.keys():
+            self.eval_metrics[metric].reset_states()
+        n = 0
+        for batch in self.eval_datasets:
+            try:
+                if self.config['streaming']:
+                    self.strategy.run(self.streaming_eval_step, args=(batch,))
+                else:
+                    self.strategy.run(self._eval_step, args=(batch,))
+
+            except tf.errors.OutOfRangeError:
+
+                pass
+            n += 1
+
+            self.eval_progbar.update(1)
+
+            self._print_eval_metrics(self.eval_progbar)
+            if n > self.eval_steps_per_epoch:
+                break
+        self._write_to_tensorboard(self.eval_metrics, self.steps, stage="eval")

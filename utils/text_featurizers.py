@@ -85,9 +85,9 @@ class TextFeaturizer:
         """ Add scorer to this instance, scorer can use decoder_config property """
         self.scorer = scorer
     def startid(self):
-        return self.token_to_index['S']
+        return self.token_to_index['<S>']
     def endid(self):
-        return self.token_to_index['/S']
+        return self.token_to_index['</S>']
     def prepand_blank(self, text: tf.Tensor) -> tf.Tensor:
         """ Prepand blank index for transducer models """
         return tf.concat([[self.blank], text], axis=0)

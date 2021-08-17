@@ -31,7 +31,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 class AM_Trainer():
     def __init__(self,config):
         self.config=config['learning_config']
-
+        self.config['running_config'].update({'streaming': config['speech_config']['streaming']})
         self.am = AM(config)
         self.am.load_model(training=True)
         if self.am.model_type!='MultiTask':
@@ -62,7 +62,7 @@ class AM_Trainer():
         all_train_step=self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs']*factor
         lr=CustomSchedule(config['model_config']['dmodel'],warmup_steps=int(all_train_step*0.1))
         config['optimizer_config']['learning_rate']=lr
-        self.opt = tf.keras.optimizers.Adamax(**config['optimizer_config'])
+        self.opt = tf.keras.optimizers.Adam(**config['optimizer_config'])
         self.runner.set_total_train_steps(all_train_step)
         self.runner.compile(self.STT,self.opt)
         self.dg.batch=self.runner.global_batch_size

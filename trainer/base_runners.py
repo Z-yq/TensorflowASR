@@ -188,7 +188,7 @@ class BaseTrainer(BaseRunner):
 
             # Print eval info to progress bar
             self._print_eval_metrics(self.eval_progbar)
-            if n>self.eval_steps_per_epoch:
+            if n>=self.eval_steps_per_epoch:
                 break
         self._write_to_tensorboard(self.eval_metrics, self.steps, stage="eval")
 
