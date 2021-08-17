@@ -73,10 +73,13 @@ C++的demo已经提供。
 
 **AM:**
 
-Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |phoneme CER(%)|Params Size|RTF|
-----------|--------------------|-----------------------------------------------|----|------------------|-----------|---------|-----|
-ConformerCTC(M)|True/False|pan.baidu.com/s/1NPk17DUr0-lBgwCkC5dFuQ|7qmd|aishell-1(20 epochs)| 6.2/5.1| 32M|0.114|
-ConformerCTS(S)|True/False|pan.baidu.com/s/1mHR2RryT7Rw0D4I9caY0QQ|7g3n|aishell-1(20 epochs)| 9.1/8.7| 10M|0.056|
+Model Name|Mel layer(USE/TRAIN)| link                                          |code|train data        |phoneme CER(%)|Params Size|RTF
+----------|--------------------|-----------------------------------------------|----|------------------|:---------:|:-------:|-----
+ConformerCTC(M)|True/False|pan.baidu.com/s/1NPk17DUr0-lBgwCkC5dFuQ|7qmd|aishell-1(20 epochs)| 6.2/5.1|32M|0.114
+ConformerCTS(S)|True/False|pan.baidu.com/s/1mHR2RryT7Rw0D4I9caY0QQ|7g3n|aishell-1(20 epochs)| 9.1/8.7|10M|0.056
+StreamingConformerCTC|True/False|pan.baidu.com/s/1NAmkIUqO5dWM2AvL_3xlVw|d1u6|aishell-1(10 epochs)| 10.1 |15M|0.08
+
+
 
 **LM:**
 

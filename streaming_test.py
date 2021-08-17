@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # tf.config.threading.set_inter_op_parallelism_threads(1)
     # tf.config.threading.set_intra_op_parallelism_threads(1)
 
-    am_config = UserConfig(r'./configs/am_data.yml', r'./configs/Streaming_ConformerS.yml')
+    am_config = UserConfig(r'./streaming-logs/am_data.yml', r'./streaming-logs/Streaming_ConformerS.yml')
 
     asr = ASR(am_config)
 
