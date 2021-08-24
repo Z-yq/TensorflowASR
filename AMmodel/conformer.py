@@ -1,5 +1,4 @@
 
-import tensorflow as tf
 from AMmodel.transducer_wrap_cfm import Transducer
 from AMmodel.ctc_wrap_cfm import CtcModel
 from AMmodel.las_wrap_cfm import LAS,LASConfig

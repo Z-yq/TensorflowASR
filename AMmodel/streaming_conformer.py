@@ -23,6 +23,7 @@ class StreamingConformerEncoder(ConformerEncoder):
             outputs = mel_outputs + wav_outputs
         else:
             B=tf.shape(inputs)[0]
+            inputs = tf.reshape(inputs, [-1, self.mel_length, self.mel_size, 1])
             outputs = self.conv_subsampling(inputs, training=training)
 
         for cblock in self.conformer_blocks:
