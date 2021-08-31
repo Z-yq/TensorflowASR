@@ -50,9 +50,9 @@ BOT:  -
    ```
 
 ## Cpp Inference
-C++的demo已经提供。
+于2021.08.31 更新了C++的demo。
 
-测试于TensorflowC 2.3.0版本
+测试于TensorflowC 2.5.0版本
 
 详细见目录 [cppinference](https://github.com/Z-yq/TensorflowASR/tree/master/CppInference)
 

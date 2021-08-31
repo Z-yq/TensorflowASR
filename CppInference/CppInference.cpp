@@ -51,15 +51,15 @@ int main()
 	
 	// Do AM  session run
 	
-	TFTensor<int32_t> am_out =am.DoInference(wav_in, length_in);
+	auto am_out =am.DoInference(wav_in, length_in);
 
 	//get am result to string
 	//here 'blank_at_zero=False' in am_data.yml
 	std::vector<std::string>am_result;
 	
-	for (int i = 0; i < am_out.Data.size(); i++)
+	for (int i = 0; i < am_out.size(); i++)
 	{
-		int32_t key = am_out.Data[i];
+		int32_t key = am_out[i];
 		am_result.push_back(AM_Token.id_to_token[key]);
 	
 	}
@@ -74,9 +74,9 @@ int main()
 	//********************
 	//lm_in.push_back(LM_Token.token_to_id["S"]+1);
 	//********************
-	for (int i = 0; i < am_out.Data.size(); i++)
+	for (int i = 0; i < am_out.size(); i++)
 	{
-		int32_t value = am_out.Data[i]+1;
+		int32_t value = am_out[i]+1;
 		lm_in.push_back(value);
 
 	}
@@ -85,15 +85,15 @@ int main()
 	//lm_in.push_back(LM_Token.token_to_id["/S"]+1);
 	//********************
 	// Do LM  session run
-	TFTensor<int32_t> lm_out = lm.DoInference(lm_in);
+	auto lm_out = lm.DoInference(lm_in);
 	
 	//get lm result to string
 	// if "blank_at_zero = True" in lm_data.yml, so index should -1
 	std::vector<std::string>lm_result;
 
-	for (int i = 0; i < lm_out.Data.size(); i++)
+	for (int i = 0; i < lm_out.size(); i++)
 	{
-		int32_t key = lm_out.Data[i]-1;
+		int32_t key = lm_out[i]-1;
 		lm_result.push_back(LM_Token.id_to_token[key]);
 
 	}

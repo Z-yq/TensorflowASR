@@ -99,7 +99,8 @@ class CtcModel(tf.keras.Model):
         experimental_relax_shapes=True,
         input_signature=[
             tf.TensorSpec([None, None, 1], dtype=tf.float32),
-        ]
+        ],
+
     )
     def extract_feature(self,inputs):
 
@@ -126,7 +127,8 @@ class CtcModel(tf.keras.Model):
             tf.TensorSpec([None, None, 256], dtype=tf.float32),
             tf.TensorSpec([None, 1], dtype=tf.int32),
 
-        ]
+        ],
+
     )
     def ctc_decode(self, enc_outputs, length):
         enc = self.decode_layer(enc_outputs, training=False)

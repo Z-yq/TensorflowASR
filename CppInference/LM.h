@@ -1,18 +1,17 @@
-#include "VoxCommon.hpp"
-#include "ext/CppFlow/include/Model.h"
+
+#include "ext/cppflow/cppflow.h"
 
 
 class LM
 {
 private:
-	Model* LMModel;
-
+	cppflow::model * LMmodel = nullptr;
 
 public:
 	
 	bool Initialize(const char* ModelPath);
 	
-	TFTensor<int32_t> DoInference( const std::vector<int32_t>& InputSequence);
+	std::vector<int64_t> DoInference( const std::vector<int32_t>& InputSequence);
 	
 	LM();
 	~LM();

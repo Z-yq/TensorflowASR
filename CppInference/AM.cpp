@@ -4,39 +4,37 @@
 
 bool AM::Initialize(const char*  ModelPath)
 {
-	try {
-		AMModel = new Model(ModelPath);
 	
-	}
-	catch (...) {
-		AMModel = nullptr;
-		return false;
+	auto model = new cppflow::model(ModelPath);
+	
+	AMmodel=model;
+	cppflow::model& mdl=*AMmodel;
+	auto input_wav=cppflow::fill({1,16000,1},1.0f);
+	auto input_length=cppflow::fill({1,1},25);
+	auto out=mdl({{"serving_default_features:0", input_wav},{"serving_default_length:0",input_length}}, {"StatefulPartitionedCall:0", "StatefulPartitionedCall:1"});
 
-	}
-	return true;
+	std::cout<<"AM init success!!!!!!!!!!!"<<std::endl;
+	return AMmodel != nullptr;
+	
 
 }
 
-TFTensor<int32_t> AM::DoInference(const std::vector<float>& InWav, const std::vector<int32_t>& InputLength)
+std::vector<int64_t> AM::DoInference(const std::vector<float> InWav, const std::vector<int32_t> InputLength)
 {
-    VX_IF_EXCEPT(!AMModel, "Tried to infer AMmodel on uninitialized model!!!!");
 
 	
-	Model& Mdl = *AMModel;
-
-	Tensor input_wavs{ Mdl,"serving_default_features" };
+	cppflow::model& mdl=*AMmodel;
+	
 	std::vector<int64_t> InputWavShape = { 1, (int64_t)InWav.size(),1 };
-	input_wavs.set_data(InWav, InputWavShape);
-	Tensor input_length{ Mdl,"serving_default_lengths" };
 	std::vector<int64_t> InputLengthShape = { 1, 1 };
-	input_length.set_data(InputLength, InputLengthShape);
-	
-	Tensor out_result{ Mdl,"StatefulPartitionedCall" };
-	std::vector<Tensor*> inputs = { &input_wavs,&input_length };
-	AMModel->run(inputs, out_result);
+	auto input_wav=cppflow::tensor(InWav,InputWavShape);
+	std::cout<<"input wav:\n"<< input_wav<<std::endl;
+	auto input_length=cppflow::tensor(InputLength,InputLengthShape);
+	std::cout<<"input length:\n"<< input_length<<std::endl;
+	auto output = mdl({{"serving_default_features:0", input_wav},{"serving_default_length:0",input_length}}, {"StatefulPartitionedCall:0", "StatefulPartitionedCall:1"});
 	std::cout << "AM Session run success!\n"<<std::endl;
 
-	TFTensor<int32_t> Output = VoxUtil::CopyTensor<int32_t>(out_result);
+	auto Output = output[0].get_data<int64_t>();
 	
 	return Output;
 
@@ -45,7 +43,7 @@ TFTensor<int32_t> AM::DoInference(const std::vector<float>& InWav, const std::ve
 
 AM::AM()
 {
-	AMModel= nullptr;
+	AMmodel= nullptr;
 }
 
 

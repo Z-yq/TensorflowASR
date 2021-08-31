@@ -2,7 +2,7 @@
 
 Demo For Tensorflow C to run pb file.
 
-Test On **Tensorflow C 2.3.0/Ubuntu 18.04/Centos 7**
+Test On **Tensorflow C 2.5.0/Ubuntu 18.04/Centos 7**
 
 Mel_layer for AM feature extractor.
 
@@ -102,22 +102,27 @@ step 4: Change The Code in AM.cpp/LM.cpp
 
 ```text
 
-TFTensor<int32_t> AM::DoInference(const std::vector<float>& InWav, const std::vector<int32_t>& InputLength)
+std::vector<int64_t> AM::DoInference(const std::vector<float> InWav, const std::vector<int32_t> InputLength)
 {
-    Tensor input_wavs{ Mdl,"serving_default_features" };//inputs1 node name
-	std::vector<int64_t> InputWavShape = { 1, (int64_t)InWav.size(),1 };
-	input_wavs.set_data(InWav, InputWavShape);
-	Tensor input_length{ Mdl,"serving_default_length" };//inputs2 node name
-	std::vector<int64_t> InputLengthShape = { 1, 1 };
-	input_length.set_data(InputLength, InputLengthShape);
+
 	
-	Tensor out_result{ Mdl,"StatefulPartitionedCall" };//output Node name
-	TFTensor<int32_t> Output = VoxUtil::CopyTensor<int32_t>(out_result);
+	cppflow::model& mdl=*AMmodel;
+	
+	std::vector<int64_t> InputWavShape = { 1, (int64_t)InWav.size(),1 };
+	std::vector<int64_t> InputLengthShape = { 1, 1 };
+	auto input_wav=cppflow::tensor(InWav,InputWavShape);
+	std::cout<<"input wav:\n"<< input_wav<<std::endl;
+	auto input_length=cppflow::tensor(InputLength,InputLengthShape);
+	std::cout<<"input length:\n"<< input_length<<std::endl;
+	auto output = mdl({{"serving_default_features:0", input_wav},{"serving_default_length:0",input_length}}, {"StatefulPartitionedCall:0", "StatefulPartitionedCall:1"});
+	std::cout << "AM Session run success!\n"<<std::endl;
+
+	auto Output = output[0].get_data<int64_t>();
 	
 	return Output;
-}
+
 ```
-*notice: ``TFTensor<T>``, should be same with Node dtype. 
+*notice: ``std::vector<T>``, should be same with Node dtype. 
 
 step 5: Follow what's in the **`CppInference.cpp`** , and you'll get it.
 
@@ -129,7 +134,7 @@ _am_data.yml  And lm_data.yml ,The 'blank_at_zero' attribute of is better to be 
 
 ## Simple Compile
 ```text
-g++ CppInference.cpp AM.cpp LM.cpp ./ext/CppFlow/src/Tensor.cpp ./ext/CppFlow/src/Model.cpp -ltensorflow -o CppInference
+g++ CppInference.cpp AM.cpp LM.cpp -I/yourdir/tensorflow_c/include -L/yourdir/tensorflow_c/lib -ltensorflow -o CppInference
 
 ./CppInference
 

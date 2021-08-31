@@ -1,9 +1,9 @@
 #encoding=utf-8
-import keras
+# import keras
 import tensorflow as tf
 
 
-class TFReflectionPad1d(keras.layers.Layer):
+class TFReflectionPad1d(tf.keras.layers.Layer):
     """Tensorflow ReflectionPad1d module."""
 
     def __init__(self, padding_size, padding_type="REFLECT", **kwargs):

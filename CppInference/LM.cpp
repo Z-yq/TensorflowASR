@@ -4,38 +4,34 @@
 
 bool LM::Initialize(const char*  ModelPath)
 {
-	try {
-		LMModel = new Model(ModelPath);
+	auto model = new cppflow::model(ModelPath);
+	LMmodel=model;
+	cppflow::model& mdl=*LMmodel;
+	auto input_seq=cppflow::fill({1,10},1);
 	
-	}
-	catch (...) {
-		LMModel = nullptr;
-		return false;
+	auto output=Mdl({{"serving_default_inputs:0",input_seq}}, {"StatefulPartitionedCall:0"});
 
-	}
-	return true;
+	std::cout<<"LM init success!!!!!!!!!!!"<<std::endl;
+	return LMmodel != nullptr;
 
 }
 
-TFTensor<int32_t> LM::DoInference( const std::vector<int32_t>& InputSequence)
+std::vector<int64_t> LM::DoInference( const std::vector<int32_t>& InputSequence)
 {
-    VX_IF_EXCEPT(!LMModel, "Tried to infer LMmodel on uninitialized model!!!!");
+   
 
-	Model& Mdl = *LMModel;
+	cppflow::model& mdl=*LMmodel;
 
-	Tensor input_seqs{ Mdl,"serving_default_inputs" };
+	
 	std::vector<int64_t> InputSequenceShape = { 1, (int64_t)InputSequence.size()};
-	input_seqs.set_data(InputSequence, InputSequenceShape);
 	
+	auto input_seq=cppflow::tensor(InputSequence,InputSequenceShape);
+	auto output=mdl({{"serving_default_inputs:0",input_seq}}, {"StatefulPartitionedCall:0"});
 	
-	Tensor out_result{ Mdl,"StatefulPartitionedCall" };
-	LMModel->run(input_seqs, out_result);
 	std::cout << "LM Session run success!\n"<<std::endl;
-
-	TFTensor<int32_t> Output = VoxUtil::CopyTensor<int32_t>(out_result);
+	auto Output = output[0].get_data<int64_t>();
 	
 	return Output;
-
 
 }
 
