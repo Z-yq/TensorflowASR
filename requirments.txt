@@ -1,7 +1,0 @@
-tensorflow==2.2.0
-librosa>=0.7.0
-keras-bert>=0.81.0
-pypinyin>=0.35.0
-tensorflow-addons>=0.10.0 
-tqdm
-jieba
