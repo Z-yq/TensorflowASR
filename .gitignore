@@ -1,0 +1,16 @@
+
+*.pyc
+*.iml
+*.v2
+*.txt
+*.h5
+*.npy
+*.json
+*.npz
+./punc_model
+./conformerCTC(M)
+./transformer-logs
+./streaming-logs
+./.idea
+.idea/misc.xml
+*.xml

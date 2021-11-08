@@ -1,0 +1,33 @@
+punc_vocab:
+  model_type: 'LM'
+  vocabulary: './punc_recover/configs/dict/punc_tokens_ch.txt'
+  blank_at_zero: True
+  beam_width: 1
+punc_biaodian:
+  model_type: 'LM'
+  vocabulary: './punc_recover/configs/dict/punc_tokens_bd.txt'
+  blank_at_zero: True
+  beam_width: 1
+
+optimizer_config:
+  learning_rate: 0.0001
+  beta_1: 0.9
+  beta_2: 0.98
+  epsilon: 0.000001
+
+running_config:
+  train_list: './train.list'
+  eval_list: './eval.list'
+  batch_size: 32
+  train_steps_per_batches: 10
+  eval_steps_per_batches: 10
+  num_epochs: 200
+  outdir: './punc_models'
+  log_interval_steps: 300
+  eval_interval_steps: 500
+  save_interval_steps: 1000
+
+bert:
+  config_json: './punc_recover/models/bert/bert_config.json'
+  bert_ckpt: './punc_recover/models/bert/bert_model.ckpt'
+  bert_vocab: './punc_recover/models/bert/vocab.txt'

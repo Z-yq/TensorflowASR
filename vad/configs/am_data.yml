@@ -1,0 +1,51 @@
+
+speech_config:
+  sample_rate: 8000
+  frame_input: 80
+  max_frames: 48000
+  train_list: './test_list.txt'
+  eval_list: './test_list.txt'
+  voice_thread: 0.4
+
+
+augments_config:
+  noise:
+    active: False
+    sample_rate: 16000
+    SNR: [0,15]
+    noises: './noise'
+  masking:
+    active: False
+    zone: (0.1,0.9)
+    mask_ratio: 0.3
+    mask_with_noise: False
+
+  pitch:
+    active: False
+    zone: (0.0,1.0)
+    sample_rate: 16000
+    factor: (-1,3)
+
+  speed:
+    active: False
+    factor: (0.9,1.2)
+
+  hz:
+    active: False
+optimizer_config:
+  lr: 0.001
+  warmup_steps: 10000
+  beta1: 0.9
+  beta2: 0.98
+  epsilon: 0.000001
+
+running_config:
+  batch_size: 4
+  train_steps_per_batches: 10
+  eval_steps_per_batches: 10
+  num_epochs: 10
+  outdir: './streaming-logs'
+  log_interval_steps: 300
+  eval_interval_steps: 500
+  save_interval_steps: 500
+
