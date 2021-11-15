@@ -57,5 +57,5 @@ class VadTester(BaseTester):
         files = os.listdir(self.checkpoint_dir)
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
-        self.steps = int(files[-1].split('_')[-1].replace('.h5', ''))
+
 

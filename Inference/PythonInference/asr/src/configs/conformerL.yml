@@ -1,0 +1,23 @@
+
+model_config:
+  name: OfflineConformerCTC
+  dmodel: 512
+  reduction_factor: 4
+  num_blocks: 13
+  head_size: 64
+  num_heads: 8
+  kernel_size: 32
+  fc_factor: 0.5
+  dropout: 0.1
+
+  ctcdecoder_num_blocks: 1
+  ctcdecoder_kernel_size: 32
+  ctcdecoder_fc_factor: 0.5
+  ctcdecoder_dropout: 0.1
+
+  translator_num_blocks: 2
+  translator_kernel_size: 32
+  translator_fc_factor: 0.5
+  translator_dropout: 0.1
+
+

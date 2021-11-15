@@ -27,25 +27,25 @@ class AM_DataLoader():
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.phone_featurizer = TextFeaturizer(self.phone_config)
         self.text_featurizer = TextFeaturizer(self.text_config)
-        self.load_map()
+        # self.load_map()
         self.make_file_list( training)
         self.augment = Augmentation(self.augment_config)
         self.init_text_to_vocab()
         self.epochs = 1
         self.steps = 0
 
-    def load_map(self):
-        with open(self.speech_config['pinyin_map'], encoding='utf-8') as f:
-            data = f.readlines()
-        self.pinyin_map = {}
-        for line in data:
-            try:
-                line = line.strip()
-                content = line.split('\t')
-                #print(content[0],content[1])
-                self.pinyin_map[content[0]] = content[1].split(' ')
-            except:
-                continue
+    # def load_map(self):
+    #     with open(self.speech_config['pinyin_map'], encoding='utf-8') as f:
+    #         data = f.readlines()
+    #     self.pinyin_map = {}
+    #     for line in data:
+    #         try:
+    #             line = line.strip()
+    #             content = line.split('\t')
+    #             #print(content[0],content[1])
+    #             self.pinyin_map[content[0]] = content[1].split(' ')
+    #         except:
+    #             continue
         # print(self.pinyin_map)
 
 
@@ -83,12 +83,12 @@ class AM_DataLoader():
                                     })
 
         def text_to_vocab_func(txt):
-            pins = pypinyin.pinyin(txt, style=8,neutral_tone_with_five=True)
+            pins = pypinyin.pinyin(txt)
             pins = [i[0] for i in pins]
             phones = []
             for pin in pins:
-                if pin in self.pinyin_map:
-                    phones += self.pinyin_map[pin]
+                if pin in self.phone_featurizer.vocab_array:
+                    phones += [pin]
                 else:
                     phones += list(pin)
             # print(phones)
@@ -119,7 +119,7 @@ class AM_DataLoader():
                 data = f.readlines()
             data = [i.strip() for i in data if i != '']
             self.test_list = data
-            self.offset = 0
+            self.test_offset = 0
 
     def only_chinese(self, word):
         txt = ''
@@ -194,7 +194,7 @@ class AM_DataLoader():
 
             txt = list(txt)
             phone_feature = self.phone_featurizer.extract(py)
-            text_feature = self.text_featurizer.extract(txt)
+            text_feature = self.text_featurizer.extract(txt)+[self.text_featurizer.endid()]
 
             if in_len < len(phone_feature):
                 logging.info('{} feature length < phone length,continue'.format(wp))
@@ -334,7 +334,7 @@ class AM_DataLoader():
 
             txt = list(txt)
             phone_feature = self.phone_featurizer.extract(py)
-            text_feature = self.text_featurizer.extract(txt)
+            text_feature = self.text_featurizer.extract(txt)+[self.text_featurizer.endid()]
 
             if in_len < len(phone_feature):
                 logging.info('{} feature length < phone length,continue'.format(wp))
@@ -398,7 +398,7 @@ class AM_DataLoader():
 
                 txt = list(txt)
                 phone_feature = self.phone_featurizer.extract(py)
-                text_feature = self.text_featurizer.extract(txt)
+                text_feature = self.text_featurizer.extract(txt)+[self.text_featurizer.endid()]
 
                 if in_len < len(phone_feature):
                     logging.info('{} feature length < phone length,continue'.format(wp))

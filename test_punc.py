@@ -44,7 +44,7 @@ class Punc():
         files = os.listdir(self.checkpoint_dir)
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
-        self.steps = int(files[-1].split('_')[-1].replace('.h5', ''))
+
     def punc_recover(self,txt):
         x=self.vocab_featurizer.extract(txt)
         mask=self.creat_mask(x)
@@ -74,7 +74,6 @@ if __name__ == '__main__':
     # tf.config.threading.set_intra_op_parallelism_threads(1)
 
     config = UserConfig(r'./punc_recover/configs/data.yml', r'./punc_recover/configs/punc_settings.yml')
-    # punc_config = UserConfig(r'./punc_model/punc_settings.yml', r'./punc_model/punc_settings.yml')
     punc = Punc(config)
 
     # first inference will be slow,it is normal

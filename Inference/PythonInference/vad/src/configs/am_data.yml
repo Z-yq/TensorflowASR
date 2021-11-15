@@ -1,0 +1,19 @@
+
+speech_config:
+  sample_rate: 8000
+  frame_input: 80
+  max_frames: 48000
+  voice_thread: 0.4
+
+
+
+running_config:
+  batch_size: 4
+  train_steps_per_batches: 10
+  eval_steps_per_batches: 10
+  num_epochs: 10
+  outdir: './vad/models'
+  log_interval_steps: 300
+  eval_interval_steps: 500
+  save_interval_steps: 500
+

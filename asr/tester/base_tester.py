@@ -69,6 +69,7 @@ class BaseTester():
             self._print_eval_metrics(self.eval_progbar)
             self.steps += 1
             if self.finished():
+                # print('finished',self.steps,self.all_steps)
                 break
     def _eval_step(self, batch):
         """
@@ -84,7 +85,7 @@ class BaseTester():
         result_dict = {}
         for key, value in self.eval_metrics.items():
             result_dict[f"{key}"] = str(value.result().numpy())
-        result_dict['phone_s_i_d']='{}_{}_{}'.format(self.phone_nums[1],self.phone_nums[2],self.phone_nums[3])
+        result_dict['phone_s_i_d']='{}_{}_{}'.format(self.ctc_nums[1],self.ctc_nums[2],self.ctc_nums[3])
         result_dict['trans_s_i_d']='{}_{}_{}'.format(self.translator_nums[1],self.translator_nums[2],self.translator_nums[3])
         progbar.set_postfix(result_dict)
 

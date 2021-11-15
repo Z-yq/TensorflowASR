@@ -1,0 +1,7 @@
+model_config:
+  name: "online_vad"
+  dmodel: 32
+  streaming: True
+  streaming_min_frame: 10
+
+

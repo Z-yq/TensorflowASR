@@ -1,8 +1,6 @@
 import logging
 import os
-from vad.models.vad_model import CNN_Online_VAD,CNN_Offline_VAD,tf
-
-from utils.user_config import UserConfig
+from vad.src.models.vad_model import CNN_Online_VAD,CNN_Offline_VAD,tf
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -44,20 +42,5 @@ class VAD():
 
 
 
-
-if __name__ == '__main__':
-
-    # USE CPU:
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    # USE one GPU:
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    # limit cpu to 1 core:
-    # import tensorflow as tf
-    # tf.config.threading.set_inter_op_parallelism_threads(1)
-    # tf.config.threading.set_intra_op_parallelism_threads(1)
-
-    config = UserConfig(r'./punc_recover/configs/data.yml', r'./punc_recover/configs/punc_settings.yml')
-
-    vad = VAD(config)
 
 

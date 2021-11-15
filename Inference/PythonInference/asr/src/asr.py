@@ -2,90 +2,28 @@ import logging
 import os
 
 import numpy as np
-import tensorflow as tf
 
-from asr.models.conformer_blocks import ConformerEncoder, StreamingConformerEncoder, CTCDecoder, Translator
-from asr.tester.base_tester import BaseTester
+from asr.src.models.conformer_blocks import ConformerEncoder, StreamingConformerEncoder, CTCDecoder, Translator, tf
+from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
-from utils.xer import wer
+from utils.user_config import UserConfig
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
-class AMTester(BaseTester):
-    """ Trainer for CTC Models """
-
-    def __init__(self,
-                 config,
-                 ):
-        super(AMTester, self).__init__(config=config['running_config'])
-        self.config = config
+class ASR():
+    def __init__(self, config):
+        self.running_config = config['running_config']
         self.speech_config = config['speech_config']
         self.model_config = config['model_config']
         self.opt_config = config['optimizer_config']
         self.phone_featurizer = TextFeaturizer(config['inp_config'])
         self.text_featurizer = TextFeaturizer(config['tar_config'])
-        self.eval_metrics = {
-            "phone_ser": tf.keras.metrics.Mean(),
-            "phone_cer": tf.keras.metrics.Mean(),
-            "txt_ser": tf.keras.metrics.Mean(),
-            "txt_cer": tf.keras.metrics.Mean()
-        }
+        self.speech_featurizer = SpeechFeaturizer(self.speech_config)
+        self.chunk = self.speech_config['sample_rate'] * self.speech_config['streaming_bucket']
+        self.compile()
 
-
-    def _eval_step(self, batch):
-        features, input_length, phone_labels, phone_label_length, tar_label = batch
-        enc_output = self.encoder(features, training=False)
-        ctc_output = self.ctc_model(enc_output, training=False)
-        ctc_output = tf.nn.softmax(ctc_output, -1)
-        ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
-        ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
-        translator_out = self.translator(ctc_decode, enc_output, training=False)
-        translator_out=tf.argmax(translator_out,-1)
-        translator_out = translator_out.numpy()
-        ctc_decode=ctc_decode.numpy()
-        phone_labels=phone_labels.numpy()
-        tar_label=tar_label.numpy()
-        for i, j in zip(ctc_decode, phone_labels):
-            i = np.array(i).flatten().tolist()
-            j = j.flatten().tolist()
-
-            while self.phone_featurizer.pad in i:
-                i.remove(self.phone_featurizer.pad)
-
-            while self.phone_featurizer.pad in j:
-                j.remove(self.phone_featurizer.pad)
-
-            score, ws, wd, wi = wer(j, i)
-            self.ctc_nums[0] += len(j)
-            self.ctc_nums[1] += ws
-            self.ctc_nums[2] += wi
-            self.ctc_nums[3] += wd
-            self.eval_metrics["phone_ser"].update_state(0 if i == j else 1)
-            self.eval_metrics["phone_cer"].reset_states()
-            self.eval_metrics["phone_cer"].update_state(sum(self.ctc_nums[1:]) / (self.ctc_nums[0] + 1e-6))
-        for i, j in zip(translator_out, tar_label):
-            i = np.array(i).flatten().tolist()
-            j = j.flatten().tolist()
-
-            while self.text_featurizer.pad in i:
-                i.remove(self.text_featurizer.pad)
-            while self.text_featurizer.endid() in i:
-                i.remove(self.text_featurizer.endid())
-            while self.text_featurizer.pad in j:
-                j.remove(self.text_featurizer.pad)
-            while self.text_featurizer.endid() in j:
-                j.remove(self.text_featurizer.endid())
-
-            score, ws, wd, wi = wer(j, i)
-            self.translator_nums[0] += len(j)
-            self.translator_nums[1] += ws
-            self.translator_nums[2] += wi
-            self.translator_nums[3] += wd
-            self.eval_metrics["txt_ser"].update_state(0 if i == j else 1)
-            self.eval_metrics["txt_cer"].reset_states()
-            self.eval_metrics["txt_cer"].update_state(sum(self.translator_nums[1:]) / (self.translator_nums[0] + 1e-6))
-
-    def compile(self,):
-
+    def compile(self):
         if not self.speech_config['streaming']:
             self.encoder = ConformerEncoder(dmodel=self.model_config['dmodel'],
                                             reduction_factor=self.model_config['reduction_factor'],
@@ -152,10 +90,6 @@ class AMTester(BaseTester):
         self.ctc_model.summary(line_length=100)
         self.translator.summary(line_length=100)
 
-    def run(self,):
-
-        self._eval_batches()
-
     def load_checkpoint(self, ):
         """Load checkpoint."""
 
@@ -177,4 +111,31 @@ class AMTester(BaseTester):
         self.translator.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
         logging.info('translator load at {}'.format(os.path.join(self.checkpoint_dir, files[-1])))
 
+    def extract_feature(self,wav):
+        wav=wav.reshape([1,-1,1])
+        out=self.encoder.inference(wav)
+        return out
+    def decode(self,enc_features):
+        enc_outputs=tf.concat(enc_features,axis=1)
+        ctc_output=self.ctc_model.inference(enc_outputs)
+        ctc_output = tf.nn.softmax(ctc_output, -1)
+        input_length = np.array([enc_outputs.shape[1]], 'int32')
+        ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
+        ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
+        ctc_result = []
+        for n in ctc_decode[0].numpy():
+            if n != 0:
+                ctc_result.append(n)
+        ctc_result += [0] * 10
+        translator_out = self.translator.inference(np.array([ctc_result], 'int32'), enc_outputs)
+        translator_out = tf.argmax(translator_out, -1)
+        txt_result = []
+        for n in translator_out[0].numpy():
+            if n != 0 and n!=self.text_featurizer.endid():
+                txt_result.append(n)
+            if n==self.text_featurizer.endid():
+                break
+
+        txt = self.text_featurizer.iextract(txt_result)
+        return ''.join(txt)
 
