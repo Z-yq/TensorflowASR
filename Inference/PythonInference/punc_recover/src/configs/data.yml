@@ -1,11 +1,11 @@
 punc_vocab:
   model_type: 'LM'
-  vocabulary: './punc_recover/src/configs/dict/punc_tokens_ch.txt'
+  vocabulary: './punc_recover/src/configs/dict/lm_tokens_ch.txt'
   blank_at_zero: True
   beam_width: 1
 punc_biaodian:
   model_type: 'LM'
-  vocabulary: './punc_recover/src/configs/dict/punc_tokens_bd.txt'
+  vocabulary: './punc_recover/src/configs/dict/lm_tokens_bd.txt'
   blank_at_zero: True
   beam_width: 1
 

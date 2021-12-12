@@ -23,7 +23,7 @@ class VAD():
 
         self.model._build()
         self.load_checkpoint()
-        self.model.summary(line_length=100)
+        # self.model.summary(line_length=100)
 
     def load_checkpoint(self, ):
         """Load checkpoint."""

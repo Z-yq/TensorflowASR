@@ -5,7 +5,7 @@ import numpy as np
 import pypinyin
 
 from punc_recover.models.punc_transformer import PuncTransformer,tf
-from utils.speech_featurizers import SpeechFeaturizer
+
 from utils.text_featurizers import TextFeaturizer
 from utils.user_config import UserConfig
 
@@ -46,15 +46,17 @@ class Punc():
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
 
     def punc_recover(self,txt):
-        x=self.vocab_featurizer.extract(txt)
+        x=[self.vocab_featurizer.startid()]+self.vocab_featurizer.extract(txt)+[self.vocab_featurizer.endid()]
+        x=tf.constant([x],tf.int32)
         mask=self.creat_mask(x)
         pred=self.model.inference(x,mask)[0]
         pred=pred.numpy()
+        pred=pred[1:]
         new_txt=[]
         for t,b in zip(txt,pred):
             new_txt.append(t)
-            if b!=self.bd_featurizer.pad:
-                new_txt.append(self.bd_featurizer.iextract(b))
+            if b.argmax()>1 and b.max()>=0.8:
+                new_txt.append(self.bd_featurizer.vocab_array[b.argmax()])
         return new_txt
 
 

@@ -92,7 +92,9 @@ class TextFeaturizer:
         """
         # return tf.map_fn(lambda x: tf.numpy_function(self._idx_to_char, [x], tf.string),
         #                  feat, dtype=tf.string)
-        tokens=[self.index_to_token[index] for index in feat]
-        return tokens
-
+        if isinstance(feat,list):
+            tokens=[self.index_to_token[index] for index in feat]
+            return tokens
+        else:
+            return self.index_to_token[feat]
 

@@ -20,7 +20,9 @@ class CNN_Online_VAD(tf.keras.Model):
         self.fc=tf.keras.layers.Dense(1)
 
         self.fc3=tf.keras.layers.Dense(80,name='audio_voice_mask')
-
+    def _build(self):
+        fake=tf.random.uniform([1,80,80])
+        self(fake)
     def call(self,
              inputs,
              training=True,
@@ -67,7 +69,9 @@ class CNN_Offline_VAD(tf.keras.Model):
         self.dense2=tf.keras.layers.Dense(dmodel,activation='relu')
         self.fc=tf.keras.layers.Dense(1)
 
-
+    def _build(self):
+        fake=tf.random.uniform([1,80,80])
+        self(fake)
     # @tf.function(experimental_relax_shapes=True)
     def call(self,
              inputs,

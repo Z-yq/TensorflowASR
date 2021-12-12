@@ -10,7 +10,7 @@ from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
+import time
 
 class AM_DataLoader():
 
@@ -27,26 +27,11 @@ class AM_DataLoader():
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.phone_featurizer = TextFeaturizer(self.phone_config)
         self.text_featurizer = TextFeaturizer(self.text_config)
-        # self.load_map()
         self.make_file_list( training)
         self.augment = Augmentation(self.augment_config)
         self.init_text_to_vocab()
         self.epochs = 1
         self.steps = 0
-
-    # def load_map(self):
-    #     with open(self.speech_config['pinyin_map'], encoding='utf-8') as f:
-    #         data = f.readlines()
-    #     self.pinyin_map = {}
-    #     for line in data:
-    #         try:
-    #             line = line.strip()
-    #             content = line.split('\t')
-    #             #print(content[0],content[1])
-    #             self.pinyin_map[content[0]] = content[1].split(' ')
-    #         except:
-    #             continue
-        # print(self.pinyin_map)
 
 
     def return_data_types(self):
@@ -210,18 +195,12 @@ class AM_DataLoader():
             if len(sample) == batch:
                 break
 
-        if self.speech_config['use_mel_layer']:
-            if self.streaming:
-                max_input = max_input // self.chunk * self.chunk + self.chunk
-            speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
-        else:
-            for i in range(len(speech_features)):
+        if self.streaming:
+            max_input = max_input // self.chunk * self.chunk + self.chunk
+        speech_features = self.speech_featurizer.pad_signal(speech_features, max_input)
 
-                if speech_features[i].shape[0] < max_input:
-                    pad = np.ones([max_input - speech_features[i].shape[0], speech_features[i].shape[1],
-                                   speech_features[i].shape[2]]) * speech_features[i].min()
-                    speech_features[i] = np.vstack((speech_features[i], pad))
+
 
         if self.streaming:
             reduce = self.speech_config['reduction_factor'] * (self.speech_featurizer.sample_rate / 1000) * \
@@ -439,7 +418,10 @@ class AM_DataLoader():
 
     def generator(self, train=True):
         while 1:
+            s=time.time()
             x, input_length, phones, phones_length,txts = self.generate(train)
+            e=time.time()
+            logging.info('load data cost time: {}'.format(e-s))
             if x.shape[0] == 0:
                 logging.info('load data length zero,continue')
                 continue

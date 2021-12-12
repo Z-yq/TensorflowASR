@@ -86,9 +86,8 @@ class ASR():
 
         self.load_checkpoint()
 
-        self.encoder.summary(line_length=100)
-        self.ctc_model.summary(line_length=100)
-        self.translator.summary(line_length=100)
+
+
 
     def load_checkpoint(self, ):
         """Load checkpoint."""

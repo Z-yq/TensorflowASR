@@ -27,7 +27,7 @@ class ASRSession(object):
         punc_config=UserConfig('./punc_recover/src/configs/data.yml','./punc_recover/src/configs/punc_settings.yml')
         vad_config=UserConfig('./vad/src/configs/am_data.yml','./vad/src/configs/model.yml')
         self.start_time = time.time()
-        self.task_content = TaskContent(self.session, 0.5,sample_rate,3)
+        self.task_content = TaskContent(self.session, 0.5,sample_rate,4)
         self.sentence_id = 0
         self.total = 0
         self.asr=ASR(asr_config)
@@ -137,9 +137,10 @@ class ASRSession(object):
                 task_result = self.asr.decode(enc_outputs)
             if len(task_result)>=5:
                 task_result=self.punc.punc_recover(task_result)
+
             logging.debug('end event audio length {}'.format(len(audio)))
             e = time.time()
-            logging.info('session {} wav length {} asr cost time {},time at {}'.format(self.session, len(audio) / 8000,
+            logging.debug('session {} wav length {} asr cost time {},time at {}'.format(self.session, len(audio) / 8000,
                                                                                        round(e - s, 5), time.time()))
             live_result['live_text'] = ''.join(task_result)
             return_value = self.on_sentence_end({
@@ -182,8 +183,10 @@ class ASRSession(object):
                         self.task_content.enc_outputs = enc_outputs
                 else:
                     task_result = self.asr.decode(enc_outputs)
+
                 if len(task_result) >= 5:
                     task_result = self.punc.punc_recover(task_result)
+
                 e = time.time()
                 logging.debug('session {} wav length {} asr cost time {}'.format(self.session, len(audio) / 8000,
                                                                                  round(e - s, 5)))
@@ -322,8 +325,10 @@ class TaskContent():
 
     def vad(self, wav):
         data = wav.copy()
-
-        data = data.reshape([1, -1, 1])
+        if self.sr!=8000:
+            factor=self.sr//8000
+            data=data[::factor]
+        data = data.reshape([1, -1, 80])
 
         output = self.sd.inference(np.array(data, 'float32'))
 
@@ -456,6 +461,28 @@ class TaskContent():
 
     def send_asr(self):
         return self.send_flag
+def audio_request_generator(wav_file):
+    pkg_duration = 20 #20ms
+    pkg_frames = int(8000 * (pkg_duration / 1000))
+
+    with wave.open(wav_file, mode="rb") as wav_reader:
+        total_frames = wav_reader.getnframes()
+        processed_frames = 0
+
+        while processed_frames < total_frames:
+
+            processed_frames += pkg_frames
+
+            audio = wav_reader.readframes(pkg_frames)
+
+            yield audio
 
 if __name__ == '__main__':
-    session=ASRSession()
+    import wave
+    session = ASRSession()
+    audio_generator=audio_request_generator('./BAC009S0764W0121.wav')
+    for audio in audio_generator:
+        result=session.send(audio)
+        if result is not None:
+            print(result)
+

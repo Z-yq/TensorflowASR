@@ -281,7 +281,7 @@ class PuncTransformer(tf.keras.Model):
         mask=create_padding_mask(x)
 
         self([x,mask])
-
+        self.inference(x,mask)
     def decoder_part(self, enc_output, mask,training=False):
         bert_out= self.to_bert_embedding_projecter(enc_output)
         x=self.to_hidden_state(bert_out)

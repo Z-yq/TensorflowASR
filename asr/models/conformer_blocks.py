@@ -1,6 +1,5 @@
 
 import tensorflow as tf
-
 from asr.models.wav_model import WavePickModel
 from utils.tools import merge_two_last_dims
 from asr.models.layers.switchnorm import SwitchNormalization
@@ -8,162 +7,6 @@ from asr.models.layers.multihead_attention import MultiHeadAttention
 from asr.models.layers.time_frequency import Spectrogram,Melspectrogram
 from asr.models.layers.positional_encoding import PositionalEncoding
 from leaf_audio import frontend
-import warnings
-
-
-class WeightNormalization(tf.keras.layers.Wrapper):
-    """Layer wrapper to decouple magnitude and direction of the layer's weights.
-    This wrapper reparameterizes a layer by decoupling the weight's
-    magnitude and direction. This speeds up convergence by improving the
-    conditioning of the optimization problem. It has an optional data-dependent
-    initialization scheme, in which initial values of weights are set as functions
-    of the first minibatch of data. Both the weight normalization and data-
-    dependent initialization are described in [Salimans and Kingma (2016)][1].
-    #### Example
-    ```python
-      net = WeightNorm(tf.keras.layers.Conv2D(2, 2, activation='relu'),
-             input_shape=(32, 32, 3), data_init=True)(x)
-      net = WeightNorm(tf.keras.layers.Conv2DTranspose(16, 5, activation='relu'),
-                       data_init=True)
-      net = WeightNorm(tf.keras.layers.Dense(120, activation='relu'),
-                       data_init=True)(net)
-      net = WeightNorm(tf.keras.layers.Dense(num_classes),
-                       data_init=True)(net)
-    ```
-    #### References
-    [1]: Tim Salimans and Diederik P. Kingma. Weight Normalization: A Simple
-         Reparameterization to Accelerate Training of Deep Neural Networks. In
-         _30th Conference on Neural Information Processing Systems_, 2016.
-         https://arxiv.org/abs/1602.07868
-    """
-
-    def __init__(self, layer, data_init=True, **kwargs):
-        """Initialize WeightNorm wrapper.
-        Args:
-          layer: A `tf.keras.layers.Layer` instance. Supported layer types are
-            `Dense`, `Conv2D`, and `Conv2DTranspose`. Layers with multiple inputs
-            are not supported.
-          data_init: `bool`, if `True` use data dependent variable initialization.
-          **kwargs: Additional keyword args passed to `tf.keras.layers.Wrapper`.
-        Raises:
-          ValueError: If `layer` is not a `tf.keras.layers.Layer` instance.
-        """
-        if not isinstance(layer, tf.keras.layers.Layer):
-            raise ValueError(
-                'Please initialize `WeightNorm` layer with a `tf.keras.layers.Layer` '
-                'instance. You passed: {input}'.format(input=layer))
-
-        layer_type = type(layer).__name__
-        if layer_type not in ['Dense', 'Conv2D', 'Conv2DTranspose', "Conv1D", "GroupConv1D"]:
-            warnings.warn('`WeightNorm` is tested only for `Dense`, `Conv2D`, `Conv1D`, `GroupConv1D`, '
-                          '`GroupConv2D`, and `Conv2DTranspose` layers. You passed a layer of type `{}`'
-                          .format(layer_type))
-
-        super().__init__(layer, **kwargs)
-
-        self.data_init = data_init
-        self._track_trackable(layer, name='layer')
-        self.filter_axis = -2 if layer_type == 'Conv2DTranspose' else -1
-
-    def _compute_weights(self):
-        """Generate weights with normalization."""
-        # Determine the axis along which to expand `g` so that `g` broadcasts to
-        # the shape of `v`.
-        new_axis = -self.filter_axis - 3
-
-        self.layer.kernel = tf.nn.l2_normalize(
-            self.v, axis=self.kernel_norm_axes) * tf.expand_dims(self.g, new_axis)
-
-    def _init_norm(self):
-        """Set the norm of the weight vector."""
-        kernel_norm = tf.sqrt(
-            tf.reduce_sum(tf.square(self.v), axis=self.kernel_norm_axes))
-        self.g.assign(kernel_norm)
-
-    def _data_dep_init(self, inputs):
-        """Data dependent initialization."""
-        # Normalize kernel first so that calling the layer calculates
-        # `tf.dot(v, x)/tf.norm(v)` as in (5) in ([Salimans and Kingma, 2016][1]).
-        self._compute_weights()
-
-        activation = self.layer.activation
-        self.layer.activation = None
-
-        use_bias = self.layer.bias is not None
-        if use_bias:
-            bias = self.layer.bias
-            self.layer.bias = tf.zeros_like(bias)
-
-        # Since the bias is initialized as zero, setting the activation to zero and
-        # calling the initialized layer (with normalized kernel) yields the correct
-        # computation ((5) in Salimans and Kingma (2016))
-        x_init = self.layer(inputs)
-        norm_axes_out = list(range(x_init.shape.rank - 1))
-        m_init, v_init = tf.nn.moments(x_init, norm_axes_out)
-        scale_init = 1. / tf.sqrt(v_init + 1e-10)
-
-        self.g.assign(self.g * scale_init)
-        if use_bias:
-            self.layer.bias = bias
-            self.layer.bias.assign(-m_init * scale_init)
-        self.layer.activation = activation
-
-    def build(self, input_shape=None):
-        """Build `Layer`.
-        Args:
-          input_shape: The shape of the input to `self.layer`.
-        Raises:
-          ValueError: If `Layer` does not contain a `kernel` of weights
-        """
-        if not self.layer.built:
-            self.layer.build(input_shape)
-
-            if not hasattr(self.layer, 'kernel'):
-                raise ValueError('`WeightNorm` must wrap a layer that'
-                                 ' contains a `kernel` for weights')
-
-            self.kernel_norm_axes = list(range(self.layer.kernel.shape.ndims))
-            self.kernel_norm_axes.pop(self.filter_axis)
-
-            self.v = self.layer.kernel
-
-            # to avoid a duplicate `kernel` variable after `build` is called
-            self.layer.kernel = None
-            self.g = self.add_weight(
-                name='g',
-                shape=(int(self.v.shape[self.filter_axis]),),
-                initializer='ones',
-                dtype=self.v.dtype,
-                trainable=True)
-            self.initialized = self.add_weight(
-                name='initialized',
-                dtype=tf.bool,
-                trainable=False)
-            self.initialized.assign(False)
-
-        super().build()
-
-    def call(self, inputs):
-        """Call `Layer`."""
-        if not self.initialized:
-            if self.data_init:
-                self._data_dep_init(inputs)
-            else:
-                # initialize `g` as the norm of the initialized kernel
-                self._init_norm()
-
-            self.initialized.assign(True)
-
-        self._compute_weights()
-        output = self.layer(inputs)
-        return output
-
-    def compute_output_shape(self, input_shape):
-        return tf.TensorShape(
-            self.layer.compute_output_shape(input_shape).as_list())
-
-
-
 class GLU(tf.keras.layers.Layer):
     def __init__(self,
                  axis=-1,
@@ -199,8 +42,8 @@ class SEModule(tf.keras.layers.Layer):
         )
         self.activation = tf.keras.layers.Activation(
             tf.keras.activations.swish, name="swish_activation")
-        self.fc1 = WeightNormalization(tf.keras.layers.Dense(filters // 8, name=f"{self.name}_fc1"))
-        self.fc2 = WeightNormalization(tf.keras.layers.Dense(filters, name=f"{self.name}_fc2"))
+        self.fc1 = tf.keras.layers.Dense(filters // 8, name=f"{self.name}_fc1")
+        self.fc2 = tf.keras.layers.Dense(filters, name=f"{self.name}_fc2")
 
     def call(
         self,
@@ -231,17 +74,17 @@ class ConvSubsampling(tf.keras.layers.Layer):
                  **kwargs):
         super(ConvSubsampling, self).__init__(name=name, **kwargs)
         assert reduction_factor % 2 == 0, "reduction_factor must be divisible by 2"
-        self.conv1 =WeightNormalization( tf.keras.layers.Conv2D(
+        self.conv1 = tf.keras.layers.Conv2D(
             filters=odim, kernel_size=(3, 3),
             strides=((reduction_factor // 2), 2),
             padding="same", activation="relu"
-        ))
-        self.conv2 = WeightNormalization(tf.keras.layers.Conv2D(
+        )
+        self.conv2 = tf.keras.layers.Conv2D(
             filters=odim, kernel_size=(3, 3),
             strides=(2, 2), padding="same",
             activation="relu"
-        ))
-        self.linear = WeightNormalization(tf.keras.layers.Dense(odim))
+        )
+        self.linear = tf.keras.layers.Dense(odim)
         self.do = tf.keras.layers.Dropout(dropout)
 
     # @tf.function(experimental_relax_shapes=True)
@@ -272,11 +115,11 @@ class FFModule(tf.keras.layers.Layer):
         super(FFModule, self).__init__(name=name, **kwargs)
         self.fc_factor = fc_factor
         self.ln = tf.keras.layers.LayerNormalization()
-        self.ffn1 = WeightNormalization(tf.keras.layers.Dense(4 * input_dim))
+        self.ffn1 = tf.keras.layers.Dense(4 * input_dim)
         self.swish = tf.keras.layers.Activation(
             tf.keras.activations.swish, name="swish_activation")
         self.do1 = tf.keras.layers.Dropout(dropout)
-        self.ffn2 = WeightNormalization(tf.keras.layers.Dense(input_dim))
+        self.ffn2 = tf.keras.layers.Dense(input_dim)
         self.do2 = tf.keras.layers.Dropout(dropout)
         self.res_add = tf.keras.layers.Add()
 
@@ -314,7 +157,7 @@ class MHSAModule(tf.keras.layers.Layer):
         super(MHSAModule, self).__init__(name=name, **kwargs)
         # self.pc = PositionalEncoding()
         self.ln = tf.keras.layers.LayerNormalization()
-        self.mha =MultiHeadAttention(head_size=head_size, num_heads=num_heads)
+        self.mha = MultiHeadAttention(head_size=head_size, num_heads=num_heads)
         self.do = tf.keras.layers.Dropout(dropout)
         self.res_add = tf.keras.layers.Add()
 
@@ -346,10 +189,10 @@ class ConvModule(tf.keras.layers.Layer):
                  **kwargs):
         super(ConvModule, self).__init__(name=name, **kwargs)
         self.ln = tf.keras.layers.LayerNormalization()
-        self.pw_conv_1 = WeightNormalization(tf.keras.layers.Conv1D(
+        self.pw_conv_1 = tf.keras.layers.Conv1D(
             filters=2 * input_dim, kernel_size=1, strides=1,
             padding="same", name="pw_conv_1"
-        ))
+        )
         self.glu = GLU()
         self.dw_conv = tf.keras.layers.SeparableConv1D(
             filters=2 * input_dim, kernel_size=kernel_size, strides=1,
@@ -358,8 +201,8 @@ class ConvModule(tf.keras.layers.Layer):
         self.bn =SwitchNormalization()
         self.swish = tf.keras.layers.Activation(
             tf.keras.activations.swish, name="swish_activation")
-        self.pw_conv_2 = WeightNormalization(tf.keras.layers.Conv1D(filters=input_dim, kernel_size=1, strides=1,
-                                                padding="same", name="pw_conv_2"))
+        self.pw_conv_2 = tf.keras.layers.Conv1D(filters=input_dim, kernel_size=1, strides=1,
+                                                padding="same", name="pw_conv_2")
         self.do = tf.keras.layers.Dropout(dropout)
         self.res_add = tf.keras.layers.Add()
 
@@ -505,7 +348,7 @@ class ConformerEncoder(tf.keras.Model):
             wav_outputs = self.wav_layer(inputs, training=training)
             outputs = mel_outputs+wav_outputs
         else:
-            inputs=self.mel_layer(inputs,training=training)
+            inputs=self.mel_layer(inputs)
             outputs = self.conv_subsampling(inputs, training=training)
 
         for cblock in self.conformer_blocks:
@@ -552,7 +395,7 @@ class CTCDecoder(tf.keras.Model):
         super(CTCDecoder, self).__init__()
         self.decode_layers = []
         self.dmodel=dmodel
-        self.project=WeightNormalization(tf.keras.layers.Dense(dmodel))
+        self.project=tf.keras.layers.Dense(dmodel)
         for i in range(num_blocks):
             conformer_block = ConformerBlock(
                 input_dim=dmodel,
@@ -569,9 +412,9 @@ class CTCDecoder(tf.keras.Model):
                                   use_bias=True, name="fully_connected")
 
     def _build(self):
-        fake=tf.random.uniform([1,100,self.dmodel])
+        fake=tf.random.uniform([1,10,self.dmodel])
         self(fake)
-    # @tf.function(experimental_relax_shapes=True)
+
     def call(self, inputs, training=None, mask=None):
         outputs=self.project(inputs,training=training)
         for layer in self.decode_layers:
@@ -707,7 +550,7 @@ class Translator(tf.keras.Model):
     @tf.function(experimental_relax_shapes=True,
                  input_signature=[
                      tf.TensorSpec([None, None], dtype=tf.int32),
-                     tf.TensorSpec([None, None, 256], dtype=tf.float32),#TODO:根据自己的dmodel修改
+                     tf.TensorSpec([None, None, 144], dtype=tf.float32),#TODO:根据自己的dmodel修改
                  ]
                  )
     def inference(self,inputs,enc):

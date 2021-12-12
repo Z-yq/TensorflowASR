@@ -340,6 +340,7 @@ class ConformerEncoder(tf.keras.Model):
     def _build(self):
         fake=tf.random.uniform([1,16000,1])
         self(fake)
+        self.inference(fake)
 
     def call(self, inputs, training=False, **kwargs):
         if self.add_wav_info:
@@ -414,7 +415,7 @@ class CTCDecoder(tf.keras.Model):
     def _build(self):
         fake=tf.random.uniform([1,10,self.dmodel])
         self(fake)
-
+        self.inference(fake)
     def call(self, inputs, training=None, mask=None):
         outputs=self.project(inputs,training=training)
         for layer in self.decode_layers:
@@ -424,7 +425,7 @@ class CTCDecoder(tf.keras.Model):
 
     @tf.function(experimental_relax_shapes=True,
                  input_signature=[
-                     tf.TensorSpec([None, None,144], dtype=tf.int32),
+                     tf.TensorSpec([None, None,256], dtype=tf.float32),
                  ]
                  )
     def inference(self,inputs):
@@ -538,6 +539,7 @@ class Translator(tf.keras.Model):
         fake_a = tf.constant([[1, 2, 3, 4, 5, 6, 7]], tf.int32)
         fake_b = tf.random.uniform([1, 100, self.dmodel])
         self(fake_a,fake_b)
+        self.inference(fake_a,fake_b)
 
 
     def call(self, inputs,enc, training=None, mask=None):
@@ -550,7 +552,7 @@ class Translator(tf.keras.Model):
     @tf.function(experimental_relax_shapes=True,
                  input_signature=[
                      tf.TensorSpec([None, None], dtype=tf.int32),
-                     tf.TensorSpec([None, None, 144], dtype=tf.float32),#TODO:根据自己的dmodel修改
+                     tf.TensorSpec([None, None, 256], dtype=tf.float32),#TODO:根据自己的dmodel修改
                  ]
                  )
     def inference(self,inputs,enc):

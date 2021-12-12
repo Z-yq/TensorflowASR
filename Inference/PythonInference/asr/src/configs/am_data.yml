@@ -19,7 +19,7 @@ speech_config:
 
 
 inp_config:
-  vocabulary: './asr/src/configs/dict/phone.txt'
+  vocabulary: './asr/src/configs/dict/pinyin.txt'
   blank_at_zero: False
   beam_width: 1
 tar_config:

@@ -100,8 +100,8 @@ class CTCTrainer(BaseTrainer):
             ctc_out = self.translator(ctc_decode_result,enc_output, training=True)
 
             translate_loss=self.mask_loss(tar_label,label_out[:,:max_length])*2.+ self.mask_loss(tar_label, ctc_out[:,:max_length])
-            train_loss = tf.reduce_mean(ctc_loss+translate_loss*5.)
-
+            # train_loss = tf.reduce_mean(ctc_loss+translate_loss*5.)
+            train_loss=tf.nn.compute_average_loss(ctc_loss+translate_loss*2.,global_batch_size=self.global_batch_size)
 
             if self.is_mixed_precision:
                 scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)

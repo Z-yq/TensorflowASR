@@ -31,7 +31,7 @@ class Punc():
                                      rate=self.model_config['rate'])
         self.model._build()
         self.load_checkpoint()
-        self.model.summary(line_length=100)
+        # self.model.summary(line_length=100)
 
     def load_checkpoint(self, ):
         """Load checkpoint."""
@@ -41,18 +41,19 @@ class Punc():
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
         self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
 
-    def punc_recover(self,txt):
-        x=self.vocab_featurizer.extract(txt)
-        mask=self.creat_mask(x)
-        pred=self.model.inference(x,mask)[0]
-        pred=pred.numpy()
-        new_txt=[]
-        for t,b in zip(txt,pred):
+    def punc_recover(self, txt):
+        x = [self.vocab_featurizer.startid()] + self.vocab_featurizer.extract(txt) + [self.vocab_featurizer.endid()]
+        x = tf.constant([x], tf.int32)
+        mask = self.creat_mask(x)
+        pred = self.model.inference(x, mask)[0]
+        pred = pred.numpy()
+        pred = pred[1:]
+        new_txt = []
+        for t, b in zip(txt, pred):
             new_txt.append(t)
-            if b!=self.bd_featurizer.pad:
-                new_txt.append(self.bd_featurizer.iextract(b))
+            if b.argmax() > 1 and b.max() >= 0.65:
+                new_txt.append(self.bd_featurizer.vocab_array[b.argmax()])
         return new_txt
-
 
 
 
