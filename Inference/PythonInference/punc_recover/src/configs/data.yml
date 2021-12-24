@@ -9,13 +9,3 @@ punc_biaodian:
   blank_at_zero: True
   beam_width: 1
 
-
-running_config:
-  batch_size: 32
-  train_steps_per_batches: 10
-  eval_steps_per_batches: 10
-  num_epochs: 200
-  outdir: './punc_recover/models'
-  log_interval_steps: 300
-  eval_interval_steps: 500
-  save_interval_steps: 1000

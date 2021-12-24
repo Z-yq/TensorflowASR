@@ -1,6 +1,3 @@
-
-
-
 model_config:
   name: PuncTransformer
   num_layers: 3  #for encoder and decoder

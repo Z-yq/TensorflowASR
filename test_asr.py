@@ -41,6 +41,7 @@ class ASR():
                                             stride_ms=self.speech_config['stride_ms'],
                                             name="conformer_encoder", )
         else:
+            assert 'Streaming' in self.model_config['name'],'am_data.yml set streaming=True,But model.yml is OfflineCTC'
             self.encoder = StreamingConformerEncoder(dmodel=self.model_config['dmodel'],
                                                      reduction_factor=self.model_config['reduction_factor'],
                                                      num_blocks=self.model_config['num_blocks'],
@@ -62,6 +63,7 @@ class ASR():
                 mel_size=self.speech_config['num_feature_bins'],
                 hop_size=int(self.speech_config['stride_ms'] * self.speech_config['sample_rate'] // 1000) *
                          self.model_config['reduction_factor'])
+            self.encoder.set_inference_func()
         self.ctc_model = CTCDecoder(num_classes=self.phone_featurizer.num_classes,
                                     dmodel=self.model_config['dmodel'],
                                     num_blocks=self.model_config['ctcdecoder_num_blocks'],
@@ -96,7 +98,7 @@ class ASR():
         self.checkpoint_dir = os.path.join(self.running_config["outdir"], "encoder-ckpt")
         files = os.listdir(self.checkpoint_dir)
         files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
-        self.encoder.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
+        self.encoder.load_weights(os.path.join(self.checkpoint_dir, files[-1]),by_name=True)
         logging.info('encoder load at {}'.format(os.path.join(self.checkpoint_dir, files[-1])))
 
         self.checkpoint_dir = os.path.join(self.running_config["outdir"], "ctc_decoder-ckpt")
@@ -123,7 +125,7 @@ class ASR():
             input_wav = data[int(s):int(e)]
             input_wav = input_wav.reshape([1, -1, 1])
             es = time.time()
-            enc_output = self.encoder.inference(input_wav, training=False)
+            enc_output = self.encoder.inference(input_wav)
             ee = time.time()
             enc_output = enc_output.numpy()
             if enc_outputs is not None:
@@ -144,7 +146,7 @@ class ASR():
                 if n != 0:
                     ctc_result.append(n)
             ctc_result += [0] * 10
-            translator_out = self.translator(np.array([ctc_result], 'int32'), enc_outputs, training=False)
+            translator_out = self.translator.inference(np.array([ctc_result], 'int32'), enc_outputs)
             translator_out = tf.argmax(translator_out, -1)
             te = time.time()
             print('extract cost time:', ee - es, 'ctc decode time:', de - ds, 'translator cost time:', te - ts)
@@ -160,6 +162,25 @@ class ASR():
         txt = self.text_featurizer.iextract(txt_result)
         return ' '.join(phone), ''.join(txt)
 
+    def remove_blank(self, labels, blank=0):
+        new_labels = []
+        # 合并相同的标签
+        previous = None
+        for l in labels:
+            if l != previous:
+                new_labels.append(l)
+                previous = l
+        # 删除blank
+        new_labels = [l for l in new_labels if l != blank]
+
+        return new_labels
+
+    def greedy_decode(self, y, blank=1331):
+        # 按列取最大值，即每个时刻t上最大值对应的下标
+        raw_rs = np.argmax(y, axis=1)
+        # 移除blank,值为0的位置表示这个位置是blank
+        rs = self.remove_blank(raw_rs, blank)
+        return rs
     def offline_stt(self, wav_path):
         # am_result is token id
         data = self.speech_featurizer.load_wav(wav_path)
@@ -173,9 +194,10 @@ class ASR():
         ctc_output = tf.nn.softmax(ctc_output, -1)
         input_length = np.array([enc_outputs.shape[1]], 'int32')
         ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
+
         ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
         ts = time.time()
-        translator_out = self.translator(ctc_decode, enc_outputs, training=False)
+        translator_out = self.translator([ctc_decode, enc_outputs], training=False)
         translator_out = tf.argmax(translator_out, -1)
         te = time.time()
         print('extract feature cost:', ee - es, 'ctc cost time:', de - ds, 'translator cost time:', te - ts)
@@ -197,7 +219,29 @@ class ASR():
             return self.stream_stt(wav_path)
         else:
             return self.offline_stt(wav_path)
+    def convert_to_onnx(self):
+        import tf2onnx
+        self.encoder.set_inference_func()
+        self.ctc_model.set_inference_func()
+        self.translator.set_inference_func()
+
+        tf2onnx.convert.from_function(self.encoder.inference,
+                                      input_signature=[ tf.TensorSpec([None, None,1], dtype=tf.float32)],opset=13,output_path='./encoder.onnx')
+
+        tf2onnx.convert.from_function(self.ctc_model.inference,
+                                      input_signature=[ tf.TensorSpec([None, None,self.ctc_model.dmodel], dtype=tf.float32),], opset=13,
+                                      output_path='./ctc_model.onnx')
+
+        tf2onnx.convert.from_function(self.translator.inference,
+                                      input_signature=[ tf.TensorSpec([None, None], dtype=tf.int32),
+                     tf.TensorSpec([None, None, self.translator.dmodel], dtype=tf.float32),], opset=13,
+                                      output_path='./translator.onnx')
+
+
     def convert_to_pb(self,export_path):
+        self.encoder.set_inference_func()
+        self.ctc_model.set_inference_func()
+        self.translator.set_inference_func()
         encoder=os.path.join(export_path,'encoder')
         ctc=os.path.join(export_path,'ctc_decoder')
         translator=os.path.join(export_path,'translator')
@@ -213,7 +257,7 @@ if __name__ == '__main__':
     import time
 
     # USE CPU:
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     # USE one GPU:
     # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     # limit cpu to 1 core:
@@ -221,7 +265,10 @@ if __name__ == '__main__':
     # tf.config.threading.set_inter_op_parallelism_threads(1)
     # tf.config.threading.set_intra_op_parallelism_threads(1)
 
-    am_config = UserConfig(r'./asr/configs/data.yml', r'./asr/configs/model.yml')
+    am_config = UserConfig(r'./asr/configs/am_data.yml', r'./asr/configs/conformerS.yml')
     asr = ASR(am_config)
-
     print(asr.stt('./asr/BAC009S0764W0121.wav'))
+    asr.convert_to_onnx()    # print(asr.stt('./asr/BAC009S0764W0121.wav'))
+    # asr.convert_to_pb('./test')
+    # converter=tf.lite.TFLiteConverter.from_saved_model('./test/encoder')
+    # model=converter.convert()

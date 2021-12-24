@@ -1,6 +1,5 @@
 
 import codecs
-import tensorflow as tf
 from utils.tools import preprocess_paths
 
 
@@ -37,15 +36,12 @@ class TextFeaturizer:
         self.token_to_index = {}
         self.index_to_token = {}
         self.vocab_array = []
-        self.tf_vocab_array = tf.constant([], dtype=tf.string)
-        self.index_to_unicode_points = tf.constant([], dtype=tf.int32)
+
         index = 0
         if self.decoder_config["blank_at_zero"]:
             self.blank = 0
             index = 1
-            self.tf_vocab_array = tf.concat([self.tf_vocab_array, [""]], axis=0)
-            self.index_to_unicode_points = tf.concat(
-                [self.index_to_unicode_points, [0]], axis=0)
+
         for line in lines:
             line = line.strip()  # Strip the '\n' char
             # Skip comment line, empty line
@@ -56,18 +52,13 @@ class TextFeaturizer:
             self.token_to_index[line] = index
             self.index_to_token[index] = line
             self.vocab_array.append(line)
-            self.tf_vocab_array = tf.concat([self.tf_vocab_array, [line]], axis=0)
-            upoint = tf.strings.unicode_decode(line, "UTF-8")
-            self.index_to_unicode_points = tf.concat(
-                [self.index_to_unicode_points, upoint], axis=0)
+
             index += 1
         self.num_classes = index
         if not self.decoder_config["blank_at_zero"]:
             self.blank = index
             self.num_classes += 1
-            self.tf_vocab_array = tf.concat([self.tf_vocab_array, [""]], axis=0)
-            self.index_to_unicode_points = tf.concat(
-                [self.index_to_unicode_points, [0]], axis=0)
+
 
         self.pad=0
         self.stop=-1

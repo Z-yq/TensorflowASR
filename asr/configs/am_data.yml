@@ -1,8 +1,8 @@
 
 speech_config:
-  mel_layer_type: leaf #Spectrogram/Melspectrogram/leaf
-  mel_layer_trainable: True #leaf support train
-  add_wav_info: True
+  mel_layer_type: Melspectrogram #Spectrogram/Melspectrogram/leaf
+  mel_layer_trainable: False #leaf support train
+  add_wav_info: False
   sample_rate: 16000
   frame_ms: 25
   stride_ms: 10
@@ -12,14 +12,14 @@ speech_config:
   eval_list: './test_list.txt'
   wav_max_duration: 7 # s
   only_chinese: True
-  streaming: True
+  streaming: False
   streaming_bucket: 0.5 #s
   pinyin_map: './asr/configs/dict/pinyin2phone.map'
 
 
 
 inp_config:
-  vocabulary: './asr/configs/dict/phone.txt'
+  vocabulary: './asr/configs/dict/pinyin.txt'
   blank_at_zero: False
   beam_width: 1
 tar_config:
@@ -63,7 +63,7 @@ running_config:
   train_steps_per_batches: 10
   eval_steps_per_batches: 10
   num_epochs: 10
-  outdir: './streaming-logs'
+  outdir: './ctc_offline-logs'
   log_interval_steps: 300
   eval_interval_steps: 500
   save_interval_steps: 500

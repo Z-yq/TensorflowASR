@@ -302,7 +302,11 @@ class PuncTransformer(tf.keras.Model):
     def inference(self, inputs,mask):
 
         enc_output = self.encoder(inputs, mask, training=False)  # (batch_size, inp_seq_len, d_model)
-        bd_out,_=self.decoder_part(enc_output, mask, training=False)
-        bd_out=tf.nn.softmax(bd_out,-1)
+        bert_out = self.to_bert_embedding_projecter(enc_output)
+        x = self.to_hidden_state(bert_out)
+        for layer in self.map_encoders:
+            x = layer(x, mask, training=False)
+        bd_output = self.final_bd_layer(x)
+        bd_out=tf.nn.softmax(bd_output,-1)
         return bd_out
 

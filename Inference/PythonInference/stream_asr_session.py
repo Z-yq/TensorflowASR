@@ -23,17 +23,17 @@ class ASRSession(object):
         self.session = session
         self.sample_rate=sample_rate
         logging.info('transcriber created. session [%s]', self.session)
-        asr_config=UserConfig('./asr/src/configs/am_data.yml','./asr/src/configs/Streaming_ConformerS.yml')
+        asr_config=UserConfig('./asr/src/configs/am_data.yml','./asr/src/configs/am_data.yml')
         punc_config=UserConfig('./punc_recover/src/configs/data.yml','./punc_recover/src/configs/punc_settings.yml')
         vad_config=UserConfig('./vad/src/configs/am_data.yml','./vad/src/configs/model.yml')
         self.start_time = time.time()
-        self.task_content = TaskContent(self.session, 0.5,sample_rate,4)
+        self.task_content = TaskContent(self.session, 0.5,sample_rate,5)
         self.sentence_id = 0
         self.total = 0
         self.asr=ASR(asr_config)
-        self.vad=VAD(vad_config)
+        self.asr.compile('./asr/models/streaming')
         self.punc=Punc(punc_config)
-        self.task_content.compile(self.vad.model)
+        self.task_content.compile(VAD(vad_config))
 
     def on_started(self, message):
         # 识别流程启动
@@ -111,7 +111,7 @@ class ASRSession(object):
 
         if self.task_content.start_event:
             return_value = self.on_sentence_begin(
-                {'index': self.sentence_id, 'start_time': self.task_content.wav_length * 1000})
+                {'index': self.sentence_id, 'start_time': self.task_content.wav_length * 1000-200})
             self.task_content.start_event = 0
             return return_value
         return_value = None
@@ -135,9 +135,10 @@ class ASRSession(object):
                 task_result = self.asr.decode(enc_outputs + [enc_output])
             else:
                 task_result = self.asr.decode(enc_outputs)
+            # print(task_result)
             if len(task_result)>=5:
                 task_result=self.punc.punc_recover(task_result)
-
+            # print(task_result)
             logging.debug('end event audio length {}'.format(len(audio)))
             e = time.time()
             logging.debug('session {} wav length {} asr cost time {},time at {}'.format(self.session, len(audio) / 8000,
@@ -273,7 +274,7 @@ class ASRSession(object):
 
 class TaskContent():
     def __init__(self, session, chunk_max_duration, sr=8000,
-                 wait_sil=3, #等待300ms
+                 wait_sil=5, #等待300ms
                  vad_time=1,#100ms做一次VAD
                  start_thread=5,
                  end_thread=2,
@@ -325,14 +326,11 @@ class TaskContent():
 
     def vad(self, wav):
         data = wav.copy()
-        if self.sr!=8000:
-            factor=self.sr//8000
-            data=data[::factor]
+        data=data[::2]
         data = data.reshape([1, -1, 80])
 
         output = self.sd.inference(np.array(data, 'float32'))
-
-        output = output.numpy().flatten()
+        output = output.flatten()
         output = np.where(output >= 0., 1, 0)
         output = output.tolist()
         return output[-int(10*self.vad_time):]

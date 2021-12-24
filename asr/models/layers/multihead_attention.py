@@ -20,7 +20,6 @@ def shape_list(x):
     static = x.shape.as_list()
     dynamic = tf.shape(x)
     return [dynamic[i] if s is None else s for i, s in enumerate(static)]
-
 class MultiHeadAttention(tf.keras.layers.Layer):
     """ This class is the same as tfa.layers.MultiHeadAttention but support mixed_precision """
 
@@ -149,30 +148,23 @@ class MultiHeadAttention(tf.keras.layers.Layer):
                 )
 
         # Linear transformations
-        query = tf.tensordot(query,  self.query_kernel, [[2], [1]])
-        key = tf.tensordot(key, self.key_kernel, [[2], [1]])
+        query = tf.einsum("BNI , HIO -> BNHO", query, self.query_kernel)
+        key = tf.einsum("BMI , HIO -> BMHO", key, self.key_kernel)
+        value = tf.einsum("BMI , HIO -> BMHO", value, self.value_kernel)
 
-        value = tf.tensordot(value,  self.value_kernel, [[2], [1]])
-
+        # Scale dot-product, doing the division to either query or key
+        # instead of their product saves some computation
         depth = tf.constant(self.head_size, dtype=query.dtype)
         query /= tf.sqrt(depth)
 
-        query_ = tf.transpose(query, [0, 2, 1, 3])
-        key_ = tf.transpose(key, [0, 2, 1, 3])
+        # Calculate dot product attention
+        logits = tf.einsum("BNHO,BMHO->BHNM", query, key)
 
-        B, H, N, O = shape_list(query_)
-        _, _, M, _ = shape_list(key_)
-
-        query_ = tf.reshape(query_, [B * H, N, O])
-        key_ = tf.reshape(key_, [B * H, M, O])
-
-        logits = tf.matmul(query_, key_, transpose_b=True)
-        # print(logits.shape,logits_.shape)
-        logits = tf.reshape(logits, [B, H, N, M])
-
+        # apply mask
         if mask is not None:
             mask = tf.cast(mask, logits.dtype)
 
+            # possibly expand on the head dimension so broadcasting works
             if len(mask.shape) != len(logits.shape):
                 mask = tf.expand_dims(mask, -3)
 
@@ -180,23 +172,18 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         attn_coef = tf.nn.softmax(logits)
 
+        # attention dropout
         attn_coef_dropout = self.dropout(attn_coef, training=training)
 
-        value_ = tf.transpose(value, [0, 2, 1, 3])
+        # attention * value
+        multihead_output = tf.einsum("BHNM,BMHI->BNHI", attn_coef_dropout, value)
 
-        attn_coef_dropout_ = tf.reshape(attn_coef_dropout, [B * H, N, M])
-        value_ = tf.reshape(value_, [B * H, M, O])
-        # multihead_output = tf.keras.backend.batch_dot(attn_coef_dropout_, value_, [2, 1])
-        multihead_output = tf.matmul(attn_coef_dropout_, value_)
-        # print(multihead_output.shape,multihead_output_.shape)
-        # tf.matmul()
-        multihead_output = tf.reshape(multihead_output, [B, H, N, O])
-        multihead_output = tf.transpose(multihead_output, [0, 2, 1, 3])
-        multihead_output = tf.reshape(multihead_output, [B, N, H * O])
+        # Run the outputs through another linear projection layer. Recombining heads
+        # is automatically done.
+        output = tf.einsum(
+            "BNHI,HIO->BNO", multihead_output, self.projection_kernel
+        )
 
-        output = tf.tensordot(multihead_output,  self.projection_kernel, [2, 0])
-        # print('output',output.shape)
-        # print('output',output.shape)
         if self.projection_bias is not None:
             output += self.projection_bias
 
@@ -247,3 +234,5 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         )
 
         return config
+
+

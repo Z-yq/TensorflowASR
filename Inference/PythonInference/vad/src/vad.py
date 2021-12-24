@@ -1,6 +1,6 @@
 import logging
 import os
-from vad.src.models.vad_model import CNN_Online_VAD,CNN_Offline_VAD,tf
+import onnxruntime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -12,30 +12,15 @@ class VAD():
 
         self.compile()
 
-    def creat_mask(self, seq):
-        seq_pad = tf.cast(tf.equal(seq, 0), tf.float32)
-        return seq_pad[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
+
     def compile(self):
-        if self.model_config['streaming']:
-            self.model = CNN_Online_VAD(self.model_config['dmodel'], name=self.model_config['name'])
-        else:
-            self.model = CNN_Offline_VAD(self.model_config['dmodel'], name=self.model_config['name'])
+        self.model=onnxruntime.InferenceSession('./vad/models/vad.onnx')
+    def inference(self,wav):
+        data = {self.model.get_inputs()[0].name: wav.astype('float32')}
 
-        self.model._build()
-        self.load_checkpoint()
-        # self.model.summary(line_length=100)
+        out = self.model.run([self.model.get_outputs()[0].name], input_feed=data)[0]
+        return out
 
-    def load_checkpoint(self, ):
-        """Load checkpoint."""
-
-        self.checkpoint_dir = os.path.join(self.running_config["outdir"], "checkpoints")
-        files = os.listdir(self.checkpoint_dir)
-        files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
-        self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
-        self.steps = int(files[-1].split('_')[-1].replace('.h5', ''))
-    def convert_to_pb(self,export_path):
-        concrete_func = self.model.inference.get_concrete_function()
-        tf.saved_model.save(self.model, export_path, signatures=concrete_func)
 
 
 

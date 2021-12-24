@@ -4,7 +4,7 @@ import io
 import numpy as np
 import librosa
 import soundfile as sf
-import tensorflow as tf
+
 
 
 def read_raw_audio(audio, sample_rate=16000):
@@ -69,9 +69,7 @@ class SpeechFeaturizer:
         # implementation using pad "reflect" with n_fft // 2
         total_frames = seconds * self.sample_rate + 2 * (self.frame_length // 2)
         return int(1 + (total_frames - self.frame_length) // self.frame_step)
-    def pad_signal(self,wavs,max_length):
-        wavs = tf.keras.preprocessing.sequence.pad_sequences(wavs, int(max_length), 'float32', 'post', 'post')
-        return wavs
+
 
 
 

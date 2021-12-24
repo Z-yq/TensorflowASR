@@ -64,6 +64,10 @@ class AMTester(BaseTester):
             self.eval_metrics["phone_cer"].update_state(sum(self.ctc_nums[1:]) / (self.ctc_nums[0] + 1e-6))
         for i, j in zip(translator_out, tar_label):
             i = np.array(i).flatten().tolist()
+            if 1 in i :
+                cut_line=i.index(1)
+                i=i[:cut_line]
+
             j = j.flatten().tolist()
 
             while self.text_featurizer.pad in i:

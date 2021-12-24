@@ -1,8 +1,8 @@
 import logging
 import os
 
-from punc_recover.src.models.punc_transformer import PuncTransformer,tf
-
+import numpy as np
+import onnxruntime
 from utils.text_featurizers import TextFeaturizer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -16,38 +16,44 @@ class Punc():
         self.bd_featurizer = TextFeaturizer(config['punc_biaodian'])
         self.compile()
 
-    def creat_mask(self, seq):
-        seq_pad = tf.cast(tf.equal(seq, 0), tf.float32)
-        return seq_pad[:, tf.newaxis, tf.newaxis, :]  # (batch_size, 1, 1, seq_len)
+    def get_angles(self,pos, i, d_model):
+        angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
+        return pos * angle_rates
+    def get_pos_encoding(self):
+
+        angle_rads = self.get_angles(np.arange(self.model_config['pe_input'])[:, np.newaxis],
+                                np.arange(self.model_config['d_model'])[np.newaxis, :],
+                                self.model_config['d_model'])
+
+        # apply sin to even indices in the array; 2i
+        angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
+
+        # apply cos to odd indices in the array; 2i+1
+        angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
+
+        pos_encoding = angle_rads[np.newaxis, ...]
+
+        self.pos_encode_inputs= np.array(pos_encoding, 'float32')
+
+    def creat_mask(self,seq):
+        seq_pad = np.array(seq == 0, 'float32')
+        return seq_pad[:, np.newaxis, np.newaxis, :]  # (batch_size, 1, 1, seq_len)
+
     def compile(self):
-        self.model = PuncTransformer(num_layers=self.model_config['num_layers'],
-                                     d_model=self.model_config['d_model'],
-                                     enc_embedding_dim=self.model_config['enc_embedding_dim'],
-                                     num_heads=self.model_config['num_heads'],
-                                     dff=self.model_config['dff'],
-                                     input_vocab_size=self.vocab_featurizer.num_classes,
-                                     bd_vocab_size=self.bd_featurizer.num_classes,
-                                     pe_input=self.model_config['pe_input'],
-                                     rate=self.model_config['rate'])
-        self.model._build()
-        self.load_checkpoint()
-        # self.model.summary(line_length=100)
-
-    def load_checkpoint(self, ):
-        """Load checkpoint."""
-
-        self.checkpoint_dir = os.path.join(self.running_config["outdir"], "checkpoints")
-        files = os.listdir(self.checkpoint_dir)
-        files.sort(key=lambda x: int(x.split('_')[-1].replace('.h5', '')))
-        self.model.load_weights(os.path.join(self.checkpoint_dir, files[-1]))
+        self.model =onnxruntime.InferenceSession('./punc_recover/models/punc.onnx')
+        self.get_pos_encoding()
 
     def punc_recover(self, txt):
         x = [self.vocab_featurizer.startid()] + self.vocab_featurizer.extract(txt) + [self.vocab_featurizer.endid()]
-        x = tf.constant([x], tf.int32)
+        x = np.array([x], 'int32')
         mask = self.creat_mask(x)
-        pred = self.model.inference(x, mask)[0]
-        pred = pred.numpy()
-        pred = pred[1:]
+        model_inputs=self.model.get_inputs()
+        data = {model_inputs[0].name: x,
+                model_inputs[1].name: mask,
+                model_inputs[2].name: self.pos_encode_inputs, }
+
+        pred = self.model.run([self.model.get_outputs()[0].name], input_feed=data)[0]
+        pred = pred[0,1:-1]
         new_txt = []
         for t, b in zip(txt, pred):
             new_txt.append(t)
