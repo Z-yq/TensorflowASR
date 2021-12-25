@@ -158,6 +158,8 @@ class ASR():
         for n in translator_out[0].numpy():
             if n != 0:
                 txt_result.append(n)
+            if n==self.text_featurizer.endid():
+                break
         phone = self.phone_featurizer.iextract(ctc_result)
         txt = self.text_featurizer.iextract(txt_result)
         return ' '.join(phone), ''.join(txt)
@@ -209,6 +211,8 @@ class ASR():
         for n in translator_out[0].numpy():
             if n != 0:
                 txt_result.append(n)
+            if n==self.text_featurizer.endid():
+                break
         phone = self.phone_featurizer.iextract(ctc_result)
         txt = self.text_featurizer.iextract(txt_result)
 
@@ -268,7 +272,4 @@ if __name__ == '__main__':
     am_config = UserConfig(r'./asr/configs/am_data.yml', r'./asr/configs/conformerS.yml')
     asr = ASR(am_config)
     print(asr.stt('./asr/BAC009S0764W0121.wav'))
-    asr.convert_to_onnx()    # print(asr.stt('./asr/BAC009S0764W0121.wav'))
-    # asr.convert_to_pb('./test')
-    # converter=tf.lite.TFLiteConverter.from_saved_model('./test/encoder')
-    # model=converter.convert()
+    asr.convert_to_onnx()
