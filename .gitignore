@@ -14,3 +14,14 @@
 ./.idea
 .idea/misc.xml
 *.xml
+ctc_offline-logs/am_data.yml
+ctc_streaming-logs/am_data.yml
+test/ctc_decoder/saved_model.pb
+test/ctc_decoder/variables/variables.data-00000-of-00001
+test/ctc_decoder/variables/variables.index
+test/encoder/saved_model.pb
+test/encoder/variables/variables.data-00000-of-00001
+test/encoder/variables/variables.index
+test/translator/saved_model.pb
+test/translator/variables/variables.data-00000-of-00001
+test/translator/variables/variables.index
