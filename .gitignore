@@ -25,3 +25,4 @@ test/encoder/variables/variables.index
 test/translator/saved_model.pb
 test/translator/variables/variables.data-00000-of-00001
 test/translator/variables/variables.index
+onnx_test.py
