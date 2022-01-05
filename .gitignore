@@ -2,7 +2,7 @@
 *.pyc
 *.iml
 *.v2
-*.txt
+
 *.h5
 *.npy
 *.json
@@ -26,3 +26,4 @@ test/translator/saved_model.pb
 test/translator/variables/variables.data-00000-of-00001
 test/translator/variables/variables.index
 onnx_test.py
+*.onnx
