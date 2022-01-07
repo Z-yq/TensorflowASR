@@ -96,8 +96,8 @@ class CTCTrainer(BaseTrainer):
 
             ctc_decode_result=tf.keras.backend.ctc_decode(ctc_output,input_length)[0][0]
             ctc_decode_result=tf.cast(tf.clip_by_value(ctc_decode_result,0,self.phone_featurizer.num_classes),tf.int32)
-            label_out = self.translator(tf.concat([phone_labels,tf.zeros_like(phone_labels)[:,:5]],-1),enc_output, training=True)
-            ctc_out = self.translator(ctc_decode_result,enc_output, training=True)
+            label_out = self.translator([tf.concat([phone_labels,tf.zeros_like(phone_labels)[:,:5]],-1),enc_output], training=True)
+            ctc_out = self.translator([ctc_decode_result,enc_output], training=True)
 
             translate_loss=self.mask_loss(tar_label,label_out[:,:max_length])*2.+ self.mask_loss(tar_label, ctc_out[:,:max_length])
             # train_loss = tf.reduce_mean(ctc_loss+translate_loss*5.)
@@ -138,7 +138,7 @@ class CTCTrainer(BaseTrainer):
         ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
         ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
 
-        ctc_out = self.translator(ctc_decode, enc_output, training=False)
+        ctc_out = self.translator([ctc_decode, enc_output], training=False)
 
 
         translate_loss = tf.keras.losses.sparse_categorical_crossentropy(tar_label, ctc_out[:, :max_length], True)
