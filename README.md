@@ -11,15 +11,15 @@
 <p align="center">
 当前branch为V2版本，为CTC+translate结构
 </p>
+
+<p align="center">
+欢迎使用并反馈bug
+</p>
 <p align="center">
 
 旧版请看 [V1版本](https://github.com/Z-yq/TensorflowASR/tree/master)
 
 </p>
-<p align="center">
-欢迎使用并反馈bug
-</p>
-
 
 
 
@@ -53,7 +53,9 @@ BOT:  -
 
 ## Cpp Inference
 
-暂未更新
+已经更新基于ONNX的CPP项目，
+
+详见 [CppInference ONNX](Inference/CppInference/onnx)
 
 ## Python Inference
 
