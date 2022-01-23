@@ -5,7 +5,7 @@ import tensorflow.keras.mixed_precision.experimental as mixed_precision
 from vad.utils.stft import TFMultiResolutionSTFT
 from vad.models.vad_model import CNN_Online_VAD,CNN_Offline_VAD
 from vad.trainer.base_trainer import BaseTrainer
-
+import numpy as np
 
 class VADTrainer(BaseTrainer):
     """ Trainer for CTC Models """
@@ -89,9 +89,9 @@ class VADTrainer(BaseTrainer):
 
         with self.strategy.scope():
             if self.model_config['streaming']:
-                self.model = CNN_Online_VAD(self.model_config['dmodel'], name=self.model_config['name'])
+                self.model = CNN_Online_VAD(self.model_config['dmodel'],self.speech_config['frame_input'], name=self.model_config['name'])
             else:
-                self.model = CNN_Offline_VAD(self.model_config['dmodel'], name=self.model_config['name'])
+                self.model = CNN_Offline_VAD(self.model_config['dmodel'],self.speech_config['frame_input'], name=self.model_config['name'])
 
             self.model._build()
             self.stft_loss=TFMultiResolutionSTFT(batch=self.running_config['batch_size'])
@@ -122,7 +122,7 @@ class VADTrainer(BaseTrainer):
             try:
                 x,y,y2=batch
                 if self.model_config['streaming'] :
-                    if tf.random.uniform(1)>0.5:
+                    if np.random.random()>0.5:
                         try:
                             V=x.shape()[-1]
                             x=tf.reshape(x,[-1,self.model_config['streaming_min_frame'],V])

@@ -57,10 +57,13 @@ class SpeechFeaturizer:
 
         # Samples
         self.sample_rate = speech_config["sample_rate"]
-        self.frame_length = int(self.sample_rate * (speech_config["frame_ms"] / 1000))
-        self.frame_step = int(self.sample_rate * (speech_config["stride_ms"] / 1000))
+        try:
+            self.frame_length = int(self.sample_rate * (speech_config["frame_ms"] / 1000))
+            self.frame_step = int(self.sample_rate * (speech_config["stride_ms"] / 1000))
         # Features
-        self.num_feature_bins = speech_config["num_feature_bins"]
+            self.num_feature_bins = speech_config["num_feature_bins"]
+        except:
+            pass
 
     def load_wav(self,path):
         wav=read_raw_audio(path,self.sample_rate)

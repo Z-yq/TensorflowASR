@@ -5,7 +5,7 @@
 #include <fstream>
 #include <string>
 struct VAD_ONNX{
-	const char* model_onnx="./models/vad.onnx";
+	const char* model_onnx="./models/offline/vad.onnx";
 	Ort::Env vad_env;
 	Ort::SessionOptions session_options;
 	
@@ -14,7 +14,7 @@ struct VAD_ONNX{
 };
 
 struct ENC_ONNX{
-	const char* model_onnx="./models/encoder.onnx";
+	const char* model_onnx="./models/offline/encoder.onnx";
 	Ort::Env enc_env;
 	Ort::SessionOptions enc_session_options;
 	Ort::Session enc_session{enc_env,model_onnx,enc_session_options};
@@ -22,7 +22,7 @@ struct ENC_ONNX{
 };
 
 struct CTC_ONNX{
-	const char* model_onnx="./models/ctc_model.onnx";
+	const char* model_onnx="./models/offline/ctc_model.onnx";
 	Ort::Env ctc_env;
 	Ort::SessionOptions ctc_session_options;
 	Ort::Session ctc_session{ctc_env,model_onnx,ctc_session_options};
@@ -30,7 +30,7 @@ struct CTC_ONNX{
 };
 
 struct TRAN_ONNX{
-	const char* model_onnx="./models/translator.onnx";
+	const char* model_onnx="./models/offline/translator.onnx";
 	Ort::Env trans_env;
 	Ort::SessionOptions trans_session_options;
 	Ort::Session trans_session{trans_env,model_onnx,trans_session_options};
@@ -49,10 +49,7 @@ namespace ASR {
 		std::map<int32_t, std::string> id_to_token;
 		int vocab_size=0;
 		void Initial(const char* am_path);
-
-
 	};
-
 
 	class Session {
 	private:

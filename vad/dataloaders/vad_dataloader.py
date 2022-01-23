@@ -16,7 +16,6 @@ class VADDataLoader():
         self.speech_config = config_dict['speech_config']
         self.running_config = config_dict['running_config']
         self.augment_config = config_dict['augments_config']
-        self.streaming = self.speech_config['streaming']
         self.batch = config_dict['running_config']['batch_size']
         self.speech_featurizer = SpeechFeaturizer(self.speech_config)
         self.make_file_list(training)
@@ -32,11 +31,8 @@ class VADDataLoader():
 
         return (
             tf.TensorShape([self.batch, None, self.speech_config['frame_input']]),
-
-            tf.TensorShape([self.batch, ]),
+            tf.TensorShape([self.batch, None, 1]),
             tf.TensorShape([self.batch, None, self.speech_config['frame_input']]),
-            tf.TensorShape([self.batch, ]),
-            tf.TensorShape([self.batch, None]),
         )
 
     def get_per_epoch_steps(self):
@@ -153,9 +149,9 @@ class VADDataLoader():
 
     def generator(self, train=True):
         while 1:
-            x, y,y2 = self.generate(train)
+            x, y, y2 = self.generate(train)
             if x.shape[0] == 0:
                 logging.info('load data length zero,continue')
                 continue
 
-            yield x, y,y2
+            yield x, y, y2
