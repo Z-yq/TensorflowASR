@@ -38,7 +38,7 @@ class AMTester(BaseTester):
         ctc_output = tf.nn.softmax(ctc_output, -1)
         ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
         ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
-        translator_out = self.translator(ctc_decode, enc_output, training=False)
+        translator_out = self.translator([ctc_decode, enc_output], training=False)
         translator_out=tf.argmax(translator_out,-1)
         translator_out = translator_out.numpy()
         ctc_decode=ctc_decode.numpy()
