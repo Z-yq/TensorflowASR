@@ -29,17 +29,18 @@ class VAD_Trainer():
         self.dg.batch = self.runner.global_batch_size
 
     def train(self):
-
+        option = tf.data.Options()
+        option.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
                                                         self.dg.return_data_types(),
                                                         self.dg.return_data_shape(),
-                                                        args=(True,))
+                                                        args=(True,)).with_options(option)
         eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
                                                        self.dg.return_data_types(),
                                                        self.dg.return_data_shape(),
-                                                       args=(False,))
+                                                       args=(False,)).with_options(option)
         self.runner.set_datasets(train_datasets, eval_datasets)
-
+        logging.warning('Training Start, first 5 steps will be slow........')
         while 1:
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():

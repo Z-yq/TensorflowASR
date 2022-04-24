@@ -9,7 +9,7 @@ from asr.trainer import ctc_runners
 from utils.user_config import UserConfig
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 gpus = tf.config.experimental.list_physical_devices('GPU')
 logging.info('valid gpus:%d' % len(gpus))
 for gpu in gpus:
@@ -43,24 +43,25 @@ class AM_Trainer():
             factor = 2
         else:
             factor = 1
-        all_train_step = self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs'] * factor
+        all_train_step = self.dg.get_per_epoch_steps() * self.config['running_config']['num_epochs'] * factor//len(gpus)
 
         self.runner.set_total_train_steps(all_train_step)
         self.runner.compile()
         self.dg.batch = self.runner.global_batch_size
 
     def train(self):
-
+        option = tf.data.Options()
+        option.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
         train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
                                                         self.dg.return_data_types(),
                                                         self.dg.return_data_shape(),
-                                                        args=(True,))
+                                                        args=(True,)).with_options(option)
         eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
                                                        self.dg.return_data_types(),
                                                        self.dg.return_data_shape(),
-                                                       args=(False,))
+                                                       args=(False,)).with_options(option)
         self.runner.set_datasets(train_datasets, eval_datasets)
-
+        logging.warning('Training Start, first 5 steps will be slow........')
         while 1:
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():
@@ -71,8 +72,8 @@ class AM_Trainer():
 
 if __name__ == '__main__':
     parse = argparse.ArgumentParser()
-    parse.add_argument('--data_config', type=str, default='./configs/data.yml', help='the am data config path')
-    parse.add_argument('--model_config', type=str, default='./configs/model.yml',
+    parse.add_argument('--data_config', type=str, default='./asr/configs/am_data.yml', help='the am data config path')
+    parse.add_argument('--model_config', type=str, default='./asr/configs/conformerS.yml',
                        help='the am model config path')
     args = parse.parse_args()
 

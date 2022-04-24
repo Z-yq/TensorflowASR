@@ -12,17 +12,19 @@ class Punc_Trainer():
         self.runner.compile()
 
     def train(self):
+        option = tf.data.Options()
+        option.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                        self.dg.return_data_types(),
+                                                        self.dg.return_data_shape(),
+                                                        args=(True,)).with_options(option)
+        eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
+                                                       self.dg.return_data_types(),
+                                                       self.dg.return_data_shape(),
+                                                       args=(False,)).with_options(option)
+        self.runner.set_datasets(train_datasets, eval_datasets)
+        logging.warning('Training Start, first 5 steps will be slow........')
         while 1:
-            train_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                            self.dg.return_data_types(),
-                                                            self.dg.return_data_shape(),
-                                                            args=(True,))
-            eval_datasets = tf.data.Dataset.from_generator(self.dg.generator,
-                                                           self.dg.return_data_types(),
-                                                           self.dg.return_data_shape(),
-                                                           args=(False,))
-            self.runner.set_datasets(train_datasets, eval_datasets)
-
             self.runner.fit(epoch=self.dg.epochs)
             if self.runner._finished():
                 self.runner.save_checkpoint()
