@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 
 class VAD():
-    def __init__(self, config,):
+    def __init__(self, config):
         self.running_config = config['running_config']
         self.model_config = config['model_config']
 
@@ -22,7 +22,6 @@ class VAD():
             self.model = CNN_Online_VAD(self.model_config['dmodel'], name=self.model_config['name'])
         else:
             self.model = CNN_Offline_VAD(self.model_config['dmodel'], name=self.model_config['name'])
-
         self.model._build()
         self.load_checkpoint()
         self.model.summary(line_length=100)
@@ -38,11 +37,6 @@ class VAD():
     def convert_to_pb(self,export_path):
         concrete_func = self.model.inference.get_concrete_function()
         tf.saved_model.save(self.model, export_path, signatures=concrete_func)
-
-
-
-
-
 
 
 if __name__ == '__main__':

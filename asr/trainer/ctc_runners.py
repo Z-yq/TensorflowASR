@@ -67,20 +67,25 @@ class CTCTrainer(BaseTrainer):
         acc=tf.cast(label==y_pred[:,:length],tf.float32)
         return tf.reduce_sum(acc*need)/(tf.reduce_sum(need)+1e-6)
     def mask_loss(self,label,y_pred):
-
+        T1=tf.shape(label)[1]
+        T2=tf.shape(y_pred)[1]
+        T=tf.reduce_min([T1,T2])
+        label=label[:,:T]
+        y_pred=y_pred[:,:T]
         need=tf.cast(tf.where(label==0,0,1),tf.float32)
-        zero=tf.cast(tf.where(label==0,1,0),tf.float32)
+        # zero=tf.cast(tf.where(label==0,1,0),tf.float32)
         loss=tf.keras.losses.sparse_categorical_crossentropy(label,y_pred,True)
         need_loss=tf.reduce_sum(loss*need)/(tf.reduce_sum(need)+1e-6)
-        zero_loss=tf.reduce_sum(loss*zero)/(tf.reduce_sum(zero)+1e-6)
-        return tf.reduce_mean(loss,-1)+need_loss+zero_loss
+        # zero_loss=tf.reduce_sum(loss*zero)/(tf.reduce_sum(zero)+1e-6)
+        return tf.reduce_mean(loss,-1)+need_loss
 
 
     @tf.function(experimental_relax_shapes=True)
     def _train_step(self, batch):
-        features, input_length, phone_labels, phone_label_length, tar_label = batch
+        features, input_length, phone_labels, phone_label_length, tar_label,hot_words,hot_words_phones, hot_words_txts,extra_text_phones,extra_text_txts,extra_text_hwts = batch
 
-        max_length=tf.shape(tar_label)[1]
+        max_length = tf.shape(tar_label)[1]
+        B=tf.shape(tar_label)[0]
         with tf.GradientTape() as tape:
 
             enc_output = self.encoder(features, training=True)
@@ -96,12 +101,21 @@ class CTCTrainer(BaseTrainer):
 
             ctc_decode_result=tf.keras.backend.ctc_decode(ctc_output,input_length)[0][0]
             ctc_decode_result=tf.cast(tf.clip_by_value(ctc_decode_result,0,self.phone_featurizer.num_classes),tf.int32)
-            label_out = self.translator([tf.concat([phone_labels,tf.zeros_like(phone_labels)[:,:5]],-1),enc_output], training=True)
-            ctc_out = self.translator([ctc_decode_result,enc_output], training=True)
+            label_out1 = self.translator([tf.concat([phone_labels,tf.zeros_like(phone_labels)[:,:5]],-1),None,None], training=True)
+            label_out2 = self.translator([tf.concat([extra_text_phones,tf.zeros_like(extra_text_phones)[:,:5]],-1),None,None], training=True)
+            label_out3 = self.translator([tf.concat([extra_text_phones,tf.zeros_like(extra_text_phones)[:,:5]],-1),None,hot_words], training=True)
+            hot_words_out1 = self.translator([tf.concat([hot_words_phones,tf.zeros_like(hot_words_phones)[:,:5]],-1),None,hot_words], training=True)
+            hot_words_out2 = self.translator([tf.concat([phone_labels,tf.zeros_like(phone_labels)[:,:5]],-1),enc_output,hot_words], training=True)
+            ctc_out1 = self.translator([ctc_decode_result,enc_output,None], training=True)
+            ctc_out2 = self.translator([ctc_decode_result,None,None], training=True)
 
-            translate_loss=self.mask_loss(tar_label,label_out[:,:max_length])*2.+ self.mask_loss(tar_label, ctc_out[:,:max_length])
+            # max_length = tf.shape(tar_label)[1]
+            translate_loss=self.mask_loss(tar_label, ctc_out1)+self.mask_loss(tar_label, ctc_out2)
+            # max_length = tf.shape(hot_words_txts)[1]
+            translate_loss += self.mask_loss(hot_words_txts, hot_words_out1) + self.mask_loss(hot_words_txts[:B],hot_words_out2)
+            translate_loss += self.mask_loss(tar_label, label_out1) + self.mask_loss(extra_text_txts,label_out2)+self.mask_loss(extra_text_hwts,label_out3)
             # train_loss = tf.reduce_mean(ctc_loss+translate_loss*5.)
-            train_loss=tf.nn.compute_average_loss(ctc_loss+translate_loss*2.,global_batch_size=self.global_batch_size)
+            train_loss=tf.nn.compute_average_loss(ctc_loss+translate_loss,global_batch_size=self.global_batch_size)
 
             if self.is_mixed_precision:
                 scaled_train_loss = self.optimizer.get_scaled_loss(train_loss)
@@ -114,7 +128,7 @@ class CTCTrainer(BaseTrainer):
         self.optimizer.apply_gradients(zip(gradients, train_list))
 
         ctc_acc = self.ctc_acc(phone_labels, ctc_decode_result)
-        translate_acc=self.translate_acc(tar_label,ctc_out,max_length)
+        translate_acc=self.translate_acc(tar_label,ctc_out1,max_length)
         self.train_metrics['ctc_acc'].update_state(ctc_acc)
         self.train_metrics["ctc_loss"].update_state(ctc_loss)
         self.train_metrics["train_loss"].update_state(train_loss)
@@ -124,7 +138,7 @@ class CTCTrainer(BaseTrainer):
 
     @tf.function(experimental_relax_shapes=True)
     def _eval_step(self, batch):
-        features, input_length, phone_labels, phone_label_length, tar_label = batch
+        features, input_length, phone_labels, phone_label_length, tar_label,hot_words,hot_words_phones, hot_words_txts,extra_text_phones,extra_text_txts,_ = batch
         max_length = tf.shape(tar_label)[1]
         enc_output = self.encoder(features, training=False)
         ctc_output = self.ctc_model(enc_output, training=False)
@@ -138,7 +152,7 @@ class CTCTrainer(BaseTrainer):
         ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
         ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
 
-        ctc_out = self.translator([ctc_decode, enc_output], training=False)
+        ctc_out = self.translator([ctc_decode, enc_output,None], training=False)
 
 
         translate_loss = tf.keras.losses.sparse_categorical_crossentropy(tar_label, ctc_out[:, :max_length], True)

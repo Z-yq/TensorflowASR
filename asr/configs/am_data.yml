@@ -2,14 +2,15 @@
 speech_config:
   mel_layer_type: Melspectrogram #Spectrogram/Melspectrogram/leaf
   mel_layer_trainable: False #leaf support train
-  add_wav_info: False
+  add_wav_info: True
   sample_rate: 16000
   frame_ms: 25
   stride_ms: 10
   num_feature_bins: 80
   reduction_factor: 4 #should keep the same with model_config, DS2 : time_reduction_factor *= s[0] for s in 'conv_strides'
-  train_list: './test_list.txt'
-  eval_list: './test_list.txt'
+  train_list: './train.list'
+  eval_list: './test.list'
+  extra_text_list: "./new_train.zh"
   wav_max_duration: 7 # s
   only_chinese: True
   streaming: False
@@ -34,13 +35,13 @@ augments_config:
     SNR: [0,15]
     noises: './noise'
   masking:
-    active: False
+    active: True
     zone: (0.1,0.9)
     mask_ratio: 0.3
     mask_with_noise: False
 
   pitch:
-    active: False
+    active: True
     zone: (0.0,1.0)
     sample_rate: 16000
     factor: (-1,3)
@@ -50,19 +51,19 @@ augments_config:
     factor: (0.9,1.2)
 
   hz:
-    active: False
+    active: True
 optimizer_config:
-  lr: 0.001
+  lr: 0.0001
   warmup_steps: 10000
   beta1: 0.9
   beta2: 0.98
   epsilon: 0.000001
 
 running_config:
-  batch_size: 32
+  batch_size: 16
   train_steps_per_batches: 10
   eval_steps_per_batches: 10
-  num_epochs: 10
+  num_epochs: 30
   outdir: './ctc_offline-logs'
   log_interval_steps: 300
   eval_interval_steps: 500

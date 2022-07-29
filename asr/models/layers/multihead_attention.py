@@ -20,6 +20,23 @@ def shape_list(x):
     static = x.shape.as_list()
     dynamic = tf.shape(x)
     return [dynamic[i] if s is None else s for i, s in enumerate(static)]
+
+def gubelm_softmax(logits, hard=False):
+
+    y = tf.nn.softmax(logits)
+
+    if hard:
+
+        y_hard = tf.cast(tf.equal(y, tf.reduce_max(y,axis=-1,keepdims=True)),
+                         y.dtype)
+        y = tf.stop_gradient(y_hard - y) + y
+        return y
+    else:
+        y_hard = tf.cast(tf.greater_equal(y, 0.5),
+                         y.dtype)
+        return y_hard
+
+
 class MultiHeadAttention(tf.keras.layers.Layer):
     """ This class is the same as tfa.layers.MultiHeadAttention but support mixed_precision """
 
@@ -59,7 +76,8 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         self.dropout = tf.keras.layers.Dropout(dropout)
         self._droput_rate = dropout
-
+        # self.query_mask_predictor=tf.keras.layers.Dense(1)
+        # self.key_mask_predictor=tf.keras.layers.Dense(1)
     def build(self, input_shape):
 
         num_query_features = input_shape[0][-1]
@@ -114,7 +132,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         super().build(input_shape)
 
    # @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs, training=None, mask=None):
+    def call(self, inputs, training=False):
 
         # einsum nomenclature
         # ------------------------
@@ -128,26 +146,11 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         key = inputs[1]
         value = inputs[2] if len(inputs) > 2 else key
 
-        # verify shapes
-        if mask is not None:
-            if len(mask.shape) < 2:
-                raise ValueError("'mask' must have atleast 2 dimensions")
-            if query.shape[-2] != mask.shape[-2]:
-                raise ValueError(
-                    "mask's second to last dimension must be equal "
-                    "to the number of elements in 'query'"
-                )
-            if key.shape[-2] != mask.shape[-1]:
-                raise ValueError(
-                    "mask's last dimension must be equal to the number of elements in 'key'"
-                )
-            if key.shape[-2] != value.shape[-2]:
-                raise ValueError(
-                    "the number of elements in 'key' must be equal "
-                    "to the same as the number of elements in 'value'"
-                )
-
         # Linear transformations
+
+        # query_mask = tf.nn.sigmoid(self.query_mask_predictor(query))
+        # key_mask = tf.nn.sigmoid(self.key_mask_predictor(key))
+
         query = tf.einsum("BNI , HIO -> BNHO", query, self.query_kernel)
         key = tf.einsum("BMI , HIO -> BMHO", key, self.key_kernel)
         value = tf.einsum("BMI , HIO -> BMHO", value, self.value_kernel)
@@ -159,18 +162,21 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         # Calculate dot product attention
         logits = tf.einsum("BNHO,BMHO->BHNM", query, key)
-
+        # mask=tf.keras.backend.batch_dot(query_mask,key_mask,[2,2])
+        # mask=mask[:,tf.newaxis]
         # apply mask
-        if mask is not None:
-            mask = tf.cast(mask, logits.dtype)
+        # if mask is not None:
+        #     mask = tf.cast(mask, logits.dtype)
+        #
+        #     # possibly expand on the head dimension so broadcasting works
+        #     if len(mask.shape) != len(logits.shape):
+        #         mask = tf.expand_dims(mask, -3)
+        # print(logits.shape, mask.shape)
 
-            # possibly expand on the head dimension so broadcasting works
-            if len(mask.shape) != len(logits.shape):
-                mask = tf.expand_dims(mask, -3)
-
-            logits += -10e9 * (1.0 - mask)
+        # logits += -10e9 * (1.0 - mask)
 
         attn_coef = tf.nn.softmax(logits)
+        # attn_coef = gubelm_softmax(logits,hard=True)
 
         # attention dropout
         attn_coef_dropout = self.dropout(attn_coef, training=training)
@@ -468,4 +474,19 @@ class MultiHeadAttention_(tf.keras.layers.Layer):
         )
 
         return config
+class ABC(tf.keras.Model):
+    def __int__(self):
+        super(ABC, self).__int__()
+        self.mha=MultiHeadAttention(head_size=32,num_heads=4)
 
+    def call(self,inputs,training=False,**kwargs):
+        return self.mha(inputs,inputs,inputs)
+if __name__ == '__main__':
+    import os
+    os.environ['CUDA_VISIBLE_DVICES']='-1'
+
+    layer=MultiHeadAttention(head_size=32,num_heads=4)
+    # layer.mha
+    a=tf.random.uniform([3,4,10])
+    out= layer.mha(a)
+    print(out.shape)

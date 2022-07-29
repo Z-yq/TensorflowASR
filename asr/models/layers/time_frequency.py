@@ -181,7 +181,7 @@ class Melspectrogram(Spectrogram):
             output = K.pow(K.sqrt(output), self.power_melgram)
         # if self.return_decibel_melgram:
         #     output = backend_keras.amplitude_to_decibel(output)
-        return output
+        return (output+40)/4.
 
     def get_config(self):
         config = {'sr': self.sr,

@@ -8,7 +8,6 @@ struct VAD_ONNX{
 	const char* model_onnx="./models/offline/vad.onnx";
 	Ort::Env vad_env;
 	Ort::SessionOptions session_options;
-	
 	Ort::Session vad_session{vad_env,model_onnx,session_options};
 
 };

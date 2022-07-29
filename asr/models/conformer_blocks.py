@@ -447,20 +447,29 @@ class RMHSAModule(tf.keras.layers.Layer):
         self.pc = PositionalEncoding()
         self.ln = tf.keras.layers.LayerNormalization()
         self.mha = MultiHeadAttention(head_size=head_size, num_heads=num_heads)
+        self.feature_mha = MultiHeadAttention(head_size=head_size, num_heads=num_heads)
+        self.hot_key_mha = MultiHeadAttention(head_size=head_size, num_heads=num_heads)
         self.do = tf.keras.layers.Dropout(dropout)
         self.res_add = tf.keras.layers.Add()
 
 
     # @tf.function(experimental_relax_shapes=True)
-    def call(self, inputs,enc, training=False, **kwargs):
+    def call(self, inputs,feature_enc=None,hot_key=None, training=False, **kwargs):
         outputs = self.pc(inputs)
         outputs = self.ln(outputs, training=training)
+        outputs = self.mha([outputs,outputs,outputs],training=training)
         # print(outputs.shape)
-        outputs = self.mha([outputs, enc, enc], training=training)
+        output_f_mha=None
+        output_hk_mha=None
+        if feature_enc is not None:
+            output_f_mha= self.feature_mha([outputs, feature_enc, feature_enc], training=training)
+        if hot_key is not None:
+            output_hk_mha = self.hot_key_mha([outputs, hot_key, hot_key], training=training)
+
         # print(outputs.shape)
         outputs = self.do(outputs, training=training)
         outputs = self.res_add([inputs, outputs])
-        return outputs
+        return outputs,output_f_mha,output_hk_mha
 
     def get_config(self):
         conf = super(RMHSAModule, self).get_config()
@@ -478,6 +487,7 @@ class RBlock(tf.keras.layers.Layer):
                  num_heads=4,
                  kernel_size=32,
                  name="RBlock",
+
                  **kwargs):
         super(RBlock, self).__init__(name=name)
         self.ffm1 = FFModule(input_dim=input_dim,
@@ -492,9 +502,16 @@ class RBlock(tf.keras.layers.Layer):
                              name="ff_module_2")
         self.ln = tf.keras.layers.LayerNormalization()
 
-    def call(self, inputs, enc,training=False, **kwargs):
+
+    def call(self, inputs, feature_enc=None,hot_key=None,training=False, **kwargs):
         outputs = self.ffm1(inputs, training=training)
-        outputs = self.mhsam(outputs,enc, training=training)
+
+        outputs, outputs2, outputs3 = self.mhsam(outputs, feature_enc, hot_key, training=training)
+        if feature_enc is not None:
+            outputs+=outputs2
+        if hot_key is not None:
+            outputs+=outputs3
+
         outputs = self.convm(outputs, training=training)
         outputs = self.ffm2(outputs, training=training)
         outputs = self.ln(outputs, training=training)
@@ -534,36 +551,79 @@ class Translator(tf.keras.Model):
             )
             self.decode_layers.append(r_block)
         self.inp_embedding=tf.keras.layers.Embedding(inp_classes,dmodel)
+        self.hot_words_embedding=tf.keras.layers.Embedding(tar_classes,dmodel)
+        self.hot_words_projector=tf.keras.layers.GRU(dmodel)
         self.fc = tf.keras.layers.Dense(units=tar_classes, activation="linear",
                                         use_bias=True, name="fully_connected")
 
     def _build(self):
         fake_a = tf.constant([[1, 2, 3, 4, 5, 6, 7]], tf.int32)
         fake_b = tf.random.uniform([1, 100, self.dmodel])
-        self([fake_a,fake_b])
+        self([fake_a,fake_b,fake_a])
 
 
     def call(self, x, training=None, mask=None):
-        inputs, enc=x
+        inputs, enc,hot_key=x
         outputs=self.inp_embedding(inputs,training=training)
+        hot_content=None
+        if hot_key is not None:
+            B=tf.shape(inputs)[0]
+            hot_embedding=self.hot_words_embedding(hot_key,training=training)
+            hot_content=self.hot_words_projector(hot_embedding)
+            hot_content=hot_content[tf.newaxis]
+            hot_content=tf.repeat(hot_content,B,axis=0)
+
         for layer in self.decode_layers:
-            outputs=layer(outputs,enc,training=training)
+            outputs=layer(outputs,enc,hot_content,training=training)
         outputs=self.fc(outputs,training=training)
         return outputs
-    def set_inference_func(self):
-        @tf.function(experimental_relax_shapes=True,
-                     input_signature=[
-                         tf.TensorSpec([None, None], dtype=tf.int32),
-                         tf.TensorSpec([None, None, self.dmodel], dtype=tf.float32),
-                     ]
-                     )
-        def inference(inputs,enc):
-            outputs = self.inp_embedding(inputs, training=False)
-            for layer in self.decode_layers:
-                outputs = layer(outputs, enc, training=False)
-            outputs = self.fc(outputs, training=False)
-            return outputs
-        self.inference=inference
+    def set_inference_func(self,mode=1):
+
+        if mode==0:
+            @tf.function(experimental_relax_shapes=True,
+                         input_signature=[
+                             tf.TensorSpec([None, None], dtype=tf.int32),
+
+                         ]
+                         )
+            def inference(inputs):
+                outputs = self.inp_embedding(inputs, training=False)
+                for layer in self.decode_layers:
+                    outputs = layer(outputs, training=False)
+                outputs = self.fc(outputs, training=False)
+                return outputs
+            self.inference = inference
+        if mode==1:
+            @tf.function(experimental_relax_shapes=True,
+                         input_signature=[
+                             tf.TensorSpec([None, None], dtype=tf.int32),
+                             tf.TensorSpec([None, None, self.dmodel], dtype=tf.float32),
+                         ]
+                         )
+            def inference(inputs, enc):
+                outputs = self.inp_embedding(inputs, training=False)
+                for layer in self.decode_layers:
+                    outputs = layer(outputs, enc, training=False)
+                outputs = self.fc(outputs, training=False)
+                return outputs
+
+            self.inference = inference
+        if mode==2:
+            @tf.function(experimental_relax_shapes=True,
+                         input_signature=[
+                             tf.TensorSpec([None, None], dtype=tf.int32),
+                             tf.TensorSpec([None, None, self.dmodel], dtype=tf.float32),
+                             tf.TensorSpec([None, None], dtype=tf.int32),
+                         ]
+                         )
+            def inference(inputs, enc,hot_key):
+                outputs = self.inp_embedding(inputs, training=False)
+                hot_key_emb = self.inp_embedding(hot_key, training=False)
+                for layer in self.decode_layers:
+                    outputs = layer(outputs, enc,hot_key_emb, training=False)
+                outputs = self.fc(outputs, training=False)
+                return outputs
+            self.inference=inference
 class StreamingConformerEncoder(ConformerEncoder):
     def add_chunk_size(self,chunk_size,mel_size,hop_size):
         self.chunk_size=chunk_size
@@ -612,3 +672,9 @@ class StreamingConformerEncoder(ConformerEncoder):
             for cblock in self.conformer_blocks:
                 outputs = cblock(outputs, training=training)
             return outputs
+if __name__ == '__main__':
+    import os
+    os.environ['CUDA_VISIBLE_DEVICES']='-1'
+    encoder=ConformerEncoder(num_blocks=1)
+    x=tf.random.uniform([1,16000,1])
+    out=encoder(x)

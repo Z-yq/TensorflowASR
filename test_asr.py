@@ -198,8 +198,13 @@ class ASR():
         ctc_decode = tf.keras.backend.ctc_decode(ctc_output, input_length)[0][0]
 
         ctc_decode = tf.cast(tf.clip_by_value(ctc_decode, 0, self.phone_featurizer.num_classes), tf.int32)
+        # print(ctc_decode)
         ts = time.time()
-        translator_out = self.translator([ctc_decode, enc_outputs], training=False)
+        hot_words=["极大",'轻狂','补充','市场','不足']
+        hot_words=[self.text_featurizer.extract(i) for i in hot_words]
+        hot_words=np.array(hot_words,'int32')
+
+        translator_out = self.translator([ctc_decode[:,:15], None,hot_words], training=False)
         translator_out = tf.argmax(translator_out, -1)
         te = time.time()
         print('extract feature cost:', ee - es, 'ctc cost time:', de - ds, 'translator cost time:', te - ts)
@@ -271,5 +276,6 @@ if __name__ == '__main__':
 
     am_config = UserConfig(r'./asr/configs/am_data.yml', r'./asr/configs/conformerS.yml')
     asr = ASR(am_config)
-    print(asr.stt('./asr/BAC009S0764W0121.wav'))
-    asr.convert_to_onnx()
+    # print(asr.stt('./asr/BAC009S0764W0121.wav'))
+    print(asr.stt(r'D:\data\data_aishell\wav\train\S0050\BAC009S0050W0251.wav'))
+    # asr.convert_to_onnx()
