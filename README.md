@@ -40,7 +40,6 @@ NLU:  -
 
 BOT:  -
 
-## TTS数据增强系统使用说明
 
 step1： 准备一个待合成的文本列表,假如命名为text.list, egs：
 
@@ -50,9 +49,16 @@ step1： 准备一个待合成的文本列表,假如命名为text.list, egs：
 ...
 ```
 
-step2： 然后在根目录下运行脚本：
+step2: 下载model
+
+链接：https://pan.baidu.com/s/1deN1PmJ4olkRKw8ceQrUNA 
+提取码：c0tp
+
+两个都要下载，然后放到目录 ./augmentations/tts_for_asr/models 下面
+
+step3： 然后在根目录下运行脚本：
 ```python
-python ./augmentations/tts_for_asr_tts_augment.py -f text.list -o save_dir --voice_num 10 --vc_num 3
+python ./augmentations/tts_for_asr/tts_augment.py -f text.list -o save_dir --voice_num 10 --vc_num 3
 ```
 其中：
 
