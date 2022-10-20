@@ -40,6 +40,7 @@ NLU:  -
 
 BOT:  -
 
+## TTS数据增强系统
 
 step1： 准备一个待合成的文本列表,假如命名为text.list, egs：
 
