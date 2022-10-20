@@ -28,6 +28,9 @@
 - VAD+降噪
 - 在线流式识别/离线识别
 - 标点恢复
+- TTS数据增强
+- 音色转换数据增强
+- 远近场数据增强
 
 ## 其它项目
 
@@ -37,6 +40,31 @@ NLU:  -
 
 BOT:  -
 
+## TTS数据增强系统使用说明
+
+step1： 准备一个待合成的文本列表,假如命名为text.list, egs：
+
+```text
+这是第一句话
+这是第二句话
+...
+```
+
+step2： 然后在根目录下运行脚本：
+```python
+python ./augmentations/tts_for_asr_tts_augment.py -f text.list -o save_dir --voice_num 10 --vc_num 3
+```
+其中：
+
+-f 是step1准备的列表
+
+-o 用于保存合成的语料路径，建议是绝对路径。
+
+--voice_num 每句话用多少个音色合成
+
+--vc_num  每句话使用音色转换增强多少次
+
+运行完毕后，会在 -o 下生成wavs目录和utterance.txt
 
 ## Mel Layer
 
@@ -135,6 +163,8 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 -   addons `For LAS structure,pip install tensorflow-addons`
 -   tqdm
 -   tf2onnx
+-   rir_generator `pip install rir-generator`
+-   onnxruntime `pip install onnxruntime or pip install onnxruntime-gpu`
 
 ## Usage
 
@@ -167,6 +197,8 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
    ```text   
 /opt/data/test.wav
 ```
+
+vad训练内部处理逻辑是靠能量做训练样本，所以确保你准备的训练语料是安静条件下录制的。
 
    
    

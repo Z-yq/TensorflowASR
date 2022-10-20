@@ -49,8 +49,16 @@ augments_config:
     active: False
     factor: (0.9,1.2)
 
+  rir:
+    active: False       # 请确保rir_generator 已经安装
+    sample_rate: 16000
+
   hz:
     active: False
+
+  vc:
+    active: False #设置True的时候，请确保vc_aug_model_L.onnx下载并放置于TensorflowASR/augmentations/tts_for_asr/models 目录下。
+
 optimizer_config:
   lr: 0.0001
   warmup_steps: 10000

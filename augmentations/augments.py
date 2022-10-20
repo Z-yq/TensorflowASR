@@ -14,10 +14,50 @@
 import glob
 import os
 from collections import UserDict
-import random
 import librosa
 import numpy as np
 from scipy import signal
+import rir_generator as rir
+import random
+
+class SignalVC():
+    def __init__(self):
+        from .tts_for_asr.vc_aug import VC_Aug
+        self.vc_aug=VC_Aug()
+    def augment(self,wav):
+        spk=np.random.randint(0,1882,1)
+        wav=self.vc_aug.convert(wav,spk)
+        return wav
+
+class SignalRIR():
+    def __init__(self,sample_rate):
+        self.sp=sample_rate
+    def get_num(self,x, y, z):
+        x_ = random.sample(list(range(x * 10)), 1)[0]
+        y_ = random.sample(list(range(y * 10)), 1)[0]
+        z_ = random.sample(list(range(z * 10)), 1)[0]
+        return [x_ / 10., y_ / 10., z_ / 10.]
+    def augment(self,wav):
+        wav=wav[:,np.newaxis]
+        h = rir.generate(
+            c=340,  # Sound velocity (m/s)
+            fs=self.sp,  # Sample frequency (samples/s)
+            r=self.get_num(5, 4, 6),
+
+            s=self.get_num(5, 4, 6),  # Source position [x y z] (m)
+            L=[5, 4, 6],  # Room dimensions [x y z] (m)
+            reverberation_time=0.4,  # Reverberation time (s)
+            nsample=4096,  # Number of output samples
+        )
+
+
+        # Convolve 2-channel signal with 3 impulse responses
+        wav = signal.convolve(h[:, None, :], wav[:, :, None])
+
+        wav = wav.mean(axis=-1)
+        return wav.flatten()
+
+
 class SignalMask():
     def __init__(self,
                  zone=(0.1, 0.9),
@@ -143,6 +183,8 @@ AUGMENTATIONS = {
     "pitch": SignalPitch,
     "speed": SignalSpeed,
     "hz":SignalHz,
+    "rir":SignalRIR,
+    "vc":SignalVC,
 }
 
 
