@@ -6,6 +6,7 @@ import argparse
 import random
 import soundfile as sf
 import os
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description="TTS for ASR")
 parser.add_argument("-f", "--file", help="text file",required=True)
@@ -34,7 +35,7 @@ with open(args.file,encoding='utf-8') as f:
     data=f.readlines()
 index=0
 
-for line in data:
+for line in tqdm(data):
     spks=random.sample(list(range(515)),args.voice_num)
     for spk in spks:
 
