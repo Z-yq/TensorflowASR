@@ -177,8 +177,14 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 
 1. 准备train_list和test_list.
 
-    **asr_train_list** 格式，其中'\t'为tap:
-
+    **asr_train_list** 格式，其中'\t'为tap，建议用程序写入一个文本文件中，路径+'\t'+文本 
+    ```python
+    wav_path="xxx/xx/xx/xxx.wav"
+    wav_label="这是个例子"
+    with open('train.list','w',encoding='utf-8') as f:
+      f.write(wav_path+'\t'+wav_label+'\n') :
+    ```
+    
     ```text
     file_path1 \t text1
     file_path2 \t text2
