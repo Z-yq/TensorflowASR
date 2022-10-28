@@ -185,15 +185,11 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
       f.write(wav_path+'\t'+wav_label+'\n') :
     ```
     
-    ```text
-    file_path1 \t text1
-    file_path2 \t text2
-    ……
-    ```
 
-    例如：
+    例如得到的train.list：
     ```text
     /opt/data/test.wav	这个是一个例子
+    ......
     ```
    
     
