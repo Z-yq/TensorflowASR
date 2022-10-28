@@ -163,7 +163,7 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 ## Requirements
 
 -   Python 3.6+
--   Tensorflow 2.5+: `pip install tensorflow-gpu`
+-   Tensorflow 2.5+: `pip install tensorflow-gpu 可以参考 https://www.bilibili.com/read/cv14876435 `
 -   librosa
 -   pypinyin `if you need use the default phoneme`
 -   keras-bert
