@@ -42,6 +42,8 @@ BOT:  -
 
 ## TTS数据增强系统
 
+没有数据也可以达到一定水平的ASR效果哟。
+
 针对ASR的TTS：训练数据为aishell1和aishell3，数据类型比较适合ASR。
 
 tips:
