@@ -144,7 +144,7 @@ Model Name|Mel layer(USE/TRAIN)| link                                          |
 ----------|--------------------|-----------------------------------------------|----|------------------|:---------:|:-------:|-----
 ConformerCTC(S)|True/False|pan.baidu.com/s/1k6miY1yNgLrT0cB-xsqqag|8s53|aishell-1(50 epochs)| 6.4|10M|0.056
 StreamingConformerCTC|True/False|pan.baidu.com/s/1Rc0x7LOiExaAC0GNhURkHw|zwh9|aishell-1(50 epochs)| 7.2 |15M|0.08
-
+ChunkConformer|True/False|pan.baidu.com/s/1o_x677WUyWNld-8sNbydxg|ujmg|aishell-1(50 epochs)| 11.4|15M|0.01
 
 
 **VAD:**
