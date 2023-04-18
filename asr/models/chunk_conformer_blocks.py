@@ -1,8 +1,7 @@
 import tensorflow as tf
-from asr.models.wav_model import WavePickModel
+
 from utils.tools import merge_two_last_dims
 from asr.models.layers.time_frequency import Spectrogram, Melspectrogram
-from leaf_audio import frontend
 
 
 class GLU(tf.keras.layers.Layer):
@@ -146,6 +145,7 @@ class ChunkMHSAModule(tf.keras.layers.Layer):
         # self.pc = PositionalEncoding()
         self.ln = tf.keras.layers.LayerNormalization()
         self.mha = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=head_size)
+        # self.mha=MultiHeadAttention(head_size=head_size,num_heads=num_heads)
         self.do = tf.keras.layers.Dropout(dropout)
         self.res_add = tf.keras.layers.Add()
         self.win_front = win_front
@@ -198,6 +198,7 @@ class ChunkMHSAModule(tf.keras.layers.Layer):
         mask = self._compute_chunk_mask(inputs, self.win_front, self.win_back)
         outputs = self.ln(inputs, training=training)
         outputs = self.mha(outputs, outputs, attention_mask=mask, training=training)
+        # outputs = self.mha([outputs, outputs], mask=mask, training=training)
         outputs = self.do(outputs, training=training)
         outputs = self.res_add([inputs, outputs])
         return outputs
@@ -211,7 +212,7 @@ class ChunkMHSAModule(tf.keras.layers.Layer):
         query = outputs[:, -T:]
         mask = mask[:, -T:]
         # tf.print('mha T:',T)
-        outputs = self.mha(query, outputs, training=training, attention_mask=mask, use_causal_mask=False)
+        outputs = self.mha(query, outputs, training=training, attention_mask=mask)
 
         outputs = self.do(outputs, training=training)
         outputs = self.res_add([inputs, outputs])
@@ -558,14 +559,6 @@ class ChunkConformerEncoder(tf.keras.Model):
 
         return valid_outputs, valid_new_mha_caches, valid_new_cnn_caches, unvalid_outputs
 
-    @tf.function(input_signature=[
-        tf.TensorSpec([1, None, 144], tf.float32),
-        tf.TensorSpec([15, 1, None, 144], tf.float32),
-        tf.TensorSpec([15, 1, None, 144], tf.float32),
-
-    ], experimental_relax_shapes=True)
-    def onnx_convert(self, inputs, mha_caches, cnn_caches, **kwargs):
-        return self.stream_call(inputs, mha_caches, cnn_caches)
 
     def get_config(self):
         conf = super(ChunkConformerEncoder, self).get_config()
@@ -679,14 +672,6 @@ class ChunkCTCDecoder(tf.keras.Model):
             unvalid_outputs = tf.zeros_like(valid_outputs)
         return valid_outputs, valid_feature, valid_new_mha_caches, valid_new_cnn_caches, unvalid_outputs
 
-    @tf.function(input_signature=[
-        tf.TensorSpec([1, None, 144], tf.float32),
-        tf.TensorSpec([1, 1, None, 144], tf.float32),
-        tf.TensorSpec([1, 1, None, 144], tf.float32),
-    ], experimental_relax_shapes=True)
-    def onnx_convert(self, inputs, mha_caches, cnn_caches):
-        return self.stream_call(self, inputs, mha_caches, cnn_caches)
-        # return outputs,new_mha_caches,new_cnn_caches
 
 
 
@@ -836,7 +821,7 @@ class ChunkConformer(tf.keras.Model):
         decoder_outputs, _ = self.decoder(help_out, training=False)
         return decoder_outputs
 
-    def stream_predict(self, input_wav, caches):
+    def picker_stream_predict(self, input_wav, caches):
         front_wav_cache, front_sub_cache, encoder_mha_cache, encoder_cnn_cache, decoder_mha_cache, decoder_cnn_cache, dec_inp = caches
         front_out, front_wav_cache, front_sub_cache = self.front.stream_call(input_wav, front_wav_cache,
                                                                              front_sub_cache)

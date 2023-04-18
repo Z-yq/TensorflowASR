@@ -4,14 +4,10 @@ import os
 import numpy as np
 
 from asr.models.chunk_conformer_blocks import (
-    ChunkConformerEncoder,
-    ChunkCTCDecoder,
-    ChunkConformerFront,
     ChunkConformer,
     tf,
 )
-from asr.trainer.ctc_runners_v4 import CTCTrainer
-from asr.models.att_decoder import LAS, LASConfig, DecoderCellState
+
 from utils.speech_featurizers import SpeechFeaturizer
 from utils.text_featurizers import TextFeaturizer
 from utils.user_config import UserConfig
@@ -42,8 +38,8 @@ class ASR:
             self.runner = ChunkConformer(self.config, self.phone_featurizer.num_classes,
                                          self.text_featurizer.num_classes)
             self.runner.compile()
-            self.runner.load_weights(
-                tf.train.latest_checkpoint(os.path.join(self.running_config['outdir'],'all-ckpt')))
+            self.runner.load_weights(tf.train.latest_checkpoint(os.path.join(self.running_config['outdir'],'all-ckpt')))
+
             self.wav_buf_length=self.runner.front.wav_buf_length
 
 
@@ -51,6 +47,7 @@ class ASR:
     def stream_call(self, wav_path):
         data = self.speech_featurizer.load_wav(wav_path)
         data = data / np.abs(data.max())
+
         caches = self.runner.init_picker_caches(1)
         caches2 = self.runner.init_decoder_caches(1)
 
@@ -58,7 +55,8 @@ class ASR:
         valid_phone_outs = tf.zeros([1, 0, self.phone_featurizer.num_classes])
         unvalid_txt_outs = tf.zeros([1, 0, self.text_featurizer.num_classes])
         txt_outs_offline = self.runner.predict(data.reshape([1, -1, 1]))
-
+        # print(txt_outs_offline[0][0])
+        # exit()
         for i in range(99999):
             s = i * self.wav_buf_length
             e = s + self.wav_buf_length
@@ -68,8 +66,9 @@ class ASR:
             input_wav = data[int(s): int(e)]
             input_wav = input_wav.reshape([1, -1, 1])
 
-            valid_phone_out, _, valid_hidden_out, caches = self.runner.stream_predict(input_wav, caches)
-
+            valid_phone_out, _, valid_hidden_out, caches = self.runner.picker_stream_predict(input_wav, caches)
+            for cache in caches:
+                print(cache.shape)
 
             if valid_phone_out.shape[1] == 0:
                 continue
@@ -289,7 +288,7 @@ if __name__ == "__main__":
     # tf.config.threading.set_intra_op_parallelism_threads(1)
 
     am_config = UserConfig(
-        r"./chunk_conformer-logs/chunk_data.yml", r"./chunk_conformer-logs/chunk_conformerS.yml"
+        r"./chunk_conformer-logs/am_data.yml", r"./chunk_conformer-logs/chunk_conformerS.yml"
     )
     asr = ASR(am_config)
 

@@ -79,7 +79,10 @@ class Spectrogram(Layer):
         if self.power_spectrogram != 2.0:
             output = K.pow(K.sqrt(output), self.power_spectrogram)
         if self.return_decibel_spectrogram:
-            output = backend_keras.amplitude_to_decibel(output)
+            if self.padding=='valid':
+                output = backend_keras.chunk_amplitude_to_decibel(output)
+            else:
+                output = backend_keras.amplitude_to_decibel(output)
 
         return output
 
