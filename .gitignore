@@ -27,3 +27,7 @@ test/translator/variables/variables.data-00000-of-00001
 test/translator/variables/variables.index
 onnx_test.py
 *.onnx
+chunk_conformer-logs/all-ckpt/checkpoint
+chunk_conformer-logs/all-ckpt/ckpt-122.data-00000-of-00001
+chunk_conformer-logs/all-ckpt/ckpt-122.index
+chunk_conformer-logs/all-ckpt/ckpt-122.data-00000-of-00001.baiduyun.uploading.cfg
