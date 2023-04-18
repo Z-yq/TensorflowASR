@@ -1,0 +1,62 @@
+model_config:
+  name: ChunkConformer
+  ChunkConformerFront:
+    dmodel: 144
+    reduction_factor: 4
+    dropout: 0.0
+    sample_rate: 16000
+    n_mels: 80
+    mel_layer_trainable: False
+    stride_ms: 10
+    chunk_num: 16 # >= 14
+  ChunkConformerEncoder:
+    dmodel: 144
+    num_blocks: 15
+    head_size: 36
+    num_heads: 4
+    kernel_size: 32
+    fc_factor: 0.5
+    dropout: 0.0
+    win_front: 36 # 1 ~= 40ms
+    win_back: 0 # 1 ~= 40ms ; latency= win_back × num_blocks × 40ms
+    name: "chunk_conformer_encoder"
+    padding: "causal"
+  ChunkCTCPicker:
+    num_classes: 277
+    dmodel: 144
+    num_blocks: 1
+    head_size: 36
+    num_heads: 4
+    fc_factor: 0.5
+    dropout: 0.0
+    kernel_size: 32
+    win_front: 36
+    win_back: 0 # 1 ~= 40ms ; latency= win_back × num_blocks × 40ms
+    name: "chunk_ctc_picker"
+  ChunkCTCDecoder:
+    num_classes: 9171
+    dmodel: 144
+    num_blocks: 1
+    head_size: 36
+    num_heads: 4
+    fc_factor: 0.5
+    dropout: 0.0
+    kernel_size: 32
+    win_front: 36
+    win_back: 8
+    name: "chunk_ctc_decoder"
+  ContextHelper:
+    num_classes: 277
+    dmodel: 144
+    num_blocks: 2
+    head_size: 36
+    num_heads: 4
+    fc_factor: 0.5
+    dropout: 0.0
+    kernel_size: 32
+    win_front: 36
+    win_back: 0
+    name: "helper"
+
+
+

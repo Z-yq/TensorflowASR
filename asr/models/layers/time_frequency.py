@@ -100,6 +100,8 @@ class Spectrogram(Layer):
         x = K.permute_dimensions(x, [0, 2, 1])
         x = K.expand_dims(x, 3)  # add a dummy dimension (channel axis)
         subsample = (self.n_hop, 1)
+        if self.padding == 'valid':
+            x = tf.pad(x, [[0, 0], [self.n_dft - 1, 0], [0, 0], [0, 0]])
         output_real = K.conv2d(x, self.dft_real_kernels,
                                strides=subsample,
                                padding=self.padding,

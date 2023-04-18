@@ -12,9 +12,10 @@ speech_config:
   eval_list: './test_list.txt'
   wav_max_duration: 7 # s
   only_chinese: True
-  streaming: False
-  streaming_bucket: 0.5 #s
+  streaming: True
+  streaming_bucket: 0.16 #s
   pinyin_map: './asr/configs/dict/pinyin2phone.map'
+  extra_txt_list: ""
 
 
 
@@ -28,6 +29,7 @@ tar_config:
   beam_width: 1
 
 augments_config:
+  aug_ratio: 0.5
   noise:
     active: False
     sample_rate: 16000
@@ -63,6 +65,7 @@ augments_config:
     active: True
     window: 10
     ratio: 0.5
+
 optimizer_config:
   lr: 0.0001
   warmup_steps: 10000
@@ -72,10 +75,8 @@ optimizer_config:
 
 running_config:
   batch_size: 32
-  train_steps_per_batches: 10
-  eval_steps_per_batches: 10
-  num_epochs: 10
-  outdir: './ctc_offline-logs'
+  num_epochs: 1000
+  outdir: './chunk_conformer-logs'
   log_interval_steps: 300
   eval_interval_steps: 500
   save_interval_steps: 500

@@ -112,7 +112,22 @@ python ./augmentations/tts_for_asr/tts_augment.py -f text.list -o save_dir --voi
 
 # Streaming Conformer
 
-现在支持流式的Conformer结构啦，同epoch训练下，和全局conformer的CER仅差0.8%。
+现在支持流式的Conformer结构啦。
+
+当前实现了两种方式：
+
+- Block Conformer + Global CTC
+    - 可用于有VAD的短时识别系统，global CTC 来构建上下文信息。
+
+- Chunk Conformer + CTC Picker 
+    - 参考了百度的SMLTA2，先利用音素CTC采样出有效的Feature，再给到lookahead的chunk conformer进行上下文信息构建做出预测。可用于长时间的流式识别系统。
+    - ![SMLTA2](asr/SMLTA2.png)
+    
+同epoch训练下，Block Conformer和全局conformer的CER仅差0.8%。
+
+Causal Chunk Conformer做了存储管理，默认配置下一次推理的算力消耗是 350MFlops。
+
+两种方式的逻辑如图：
 
 ![streaming_conformer](asr/streaming_model.svg)
 
@@ -160,7 +175,7 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 
 最新更新
 
-- :1st_place_medal: [2021.08.19]更改了Streaming Conformer结构，舍弃了之前的LSTM结构以提升训练速度，目前已经验证推举配置的训练结果只和全局的conformer相差1%左右。
+- :1st_place_medal: [2023.04.18]更新了Chunk Conformer结构，适合长时流式ASR场景。
 
   
 
@@ -171,13 +186,14 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 ## Supported Models
 
 -   **Conformer** 
--   **StreamingConformer**
+-   **BlockConformer**
+-   **ChunkConformer**
 
 
 ## Requirements
 
 -   Python 3.6+
--   Tensorflow 2.5+: `pip install tensorflow-gpu 可以参考 https://www.bilibili.com/read/cv14876435 `
+-   Tensorflow 2.8+: `pip install tensorflow-gpu 可以参考 https://www.bilibili.com/read/cv14876435 `
 -   librosa
 -   pypinyin `if you need use the default phoneme`
 -   keras-bert
