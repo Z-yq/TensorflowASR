@@ -83,7 +83,7 @@ class Chunk_DataLoader(tf.keras.utils.Sequence):
             self.phone_map[py] = phone
 
         def text_to_vocab_func(txt):
-            pins = pypinyin.pinyin(txt, 8)
+            pins = pypinyin.pinyin(txt, 8,neutral_tone_with_five=True)
             pins = [i[0] for i in pins]
             phones = []
             for pin in pins:
