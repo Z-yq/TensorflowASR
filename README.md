@@ -166,7 +166,7 @@ test_asr.py 中将model转成onnx文件放入pythonInference中
 
 
 ## Community
-欢迎加入，讨论和分享问题。 群已满200人需邀请进入，请添加备注通过。
+欢迎加入，讨论和分享问题。 群已满200人需邀请进入，请添加备注"TensorflowASR"。
 
 <img width="300" height="300" src="./community.jpg">
 
