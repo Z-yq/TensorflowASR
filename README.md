@@ -21,7 +21,15 @@
 
 </p>
 
+## 项目对比
 
+Name|参数量|中文CER|训练轮数|online/offline|测试数据|解码方式|
+----|--|--|--|--|----|--|
+Wenet(Conformer)|9.5M|6.56%|100|offline|aishell1-test|ctc_greedy|
+FunASR(Paraformer)|9.2M|-|100|offline|aishell1-test|ctc_greedy|
+ours(ConformerCTC)|10.1M|6.8%|100|offline|aishell1-test|ctc_greedy|
+ours(StreamingConformerCTC)|10.1M|7.2%|100|online|aishell1-test|ctc_greedy|
+ours(ChunkConformer)|11M|8.1%|100|online|aishell1-test|ctc_greedy|
 
 ## 实现功能
 
@@ -54,13 +62,14 @@ tips:
 
 - 如果待合成文本有标点符号请手动去除
 
-- 如果想添加停顿，请在文本中间添加‘sil’
+- 如果想添加停顿，请在文本中间添加sil
 
 step1： 准备一个待合成的文本列表,假如命名为text.list, egs：
 
 ```text
 这是第一句话
 这是第二句话
+这是一句sil有停顿的话
 ...
 ```
 
