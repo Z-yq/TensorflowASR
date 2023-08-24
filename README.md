@@ -26,6 +26,7 @@
 Name|参数量|中文CER|训练轮数|online/offline|测试数据|解码方式|
 ----|--|--|--|--|----|--|
 Wenet(Conformer)|9.5M|6.48%|100|offline|aishell1-test|ctc_greedy|
+Wenet(U2++Conformer)|10.6M|-|100|online|aishell1-test|ctc_greedy|
 Wenet(Paraformer)|9.0M|6.99%|100|offline|aishell1-test|paraformer_greedy|
 FunASR(Paraformer)|9.5M|-|100|offline|aishell1-test|paraformer_greedy|
 ours(ConformerCTC)|10.1M|6.8%|100|offline|aishell1-test|ctc_greedy|
