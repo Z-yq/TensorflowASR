@@ -30,7 +30,7 @@ Wenet(Paraformer)|9.0M|6.99%|100|offline|aishell1-test|paraformer_greedy|
 FunASR(Paraformer)|9.5M|-|100|offline|aishell1-test|paraformer_greedy|
 ours(ConformerCTC)|10.1M|6.8%|100|offline|aishell1-test|ctc_greedy|
 ours(StreamingConformerCTC)|10.1M|7.2%|100|online|aishell1-test|ctc_greedy|
-ours(ChunkConformer)|11M|8.1%|100|online|aishell1-test|ctc_greedy|
+ours(ChunkConformer)|11M|8.9%|100|online|aishell1-test|ctc_greedy|
 
 ## 实现功能
 
