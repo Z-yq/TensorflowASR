@@ -34,6 +34,7 @@ Wenet(transformer)|9.7M|8.68%|100|offline|aishell1-test|ctc_greedy|
 Wenet(Paraformer)|9.0M|6.99%|100|offline|aishell1-test|paraformer_greedy|
 FunASR(Paraformer)|9.5M|6.37%|100|offline|aishell1-test|paraformer_greedy|
 FunASR(Conformer)|9.5M|6.64%|100|offline|aishell1-test|ctc_greedy|
+FunASR(e_branchformer)|10.1M|6.65%|100|offline|aishell1-test|ctc_greedy|
 repo(ConformerCTC)|10.1M|6.8%|100|offline|aishell1-test|ctc_greedy|
 
 
